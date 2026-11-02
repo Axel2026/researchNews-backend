@@ -1,0 +1,126 @@
+import { and, desc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { db } from '../db/client';
+import { articles, articleTranslations } from '../db/schema';
+import { FALLBACK_LOCALE, type Locale } from './locale';
+import type { ArticleDetail, ArticleListItem } from './types';
+
+const polish = alias(articleTranslations, 'pl');
+const requested = alias(articleTranslations, 'requested');
+
+function toIso(value: Date): string {
+  return value.toISOString();
+}
+
+export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
+  const rows = await db
+    .select({
+      id: articles.id,
+      slug: articles.slug,
+      imageUrl: articles.imageUrl,
+      publishedAt: articles.publishedAt,
+      featured: articles.featured,
+      title: requested.title,
+      field: requested.field,
+      shortPopularization: requested.shortPopularization,
+      fallbackTitle: polish.title,
+      fallbackField: polish.field,
+      fallbackShortPopularization: polish.shortPopularization,
+    })
+    .from(articles)
+    .innerJoin(
+      polish,
+      and(
+        eq(polish.articleId, articles.id),
+        eq(polish.locale, FALLBACK_LOCALE),
+      ),
+    )
+    .leftJoin(
+      requested,
+      and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
+    )
+    .orderBy(desc(articles.featured), desc(articles.publishedAt));
+
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    title: row.title ?? row.fallbackTitle,
+    field: row.field ?? row.fallbackField,
+    shortPopularization:
+      row.shortPopularization ?? row.fallbackShortPopularization,
+    imageUrl: row.imageUrl,
+    publishedAt: toIso(row.publishedAt),
+    featured: row.featured,
+  }));
+}
+
+export async function getArticleBySlug(
+  slug: string,
+  locale: Locale,
+): Promise<ArticleDetail | undefined> {
+  const rows = await db
+    .select({
+      id: articles.id,
+      slug: articles.slug,
+      authors: articles.authors,
+      realTitle: articles.realTitle,
+      imageUrl: articles.imageUrl,
+      publishedAt: articles.publishedAt,
+      featured: articles.featured,
+      doi: articles.doi,
+      year: articles.year,
+      journal: articles.journal,
+      sourceUrl: articles.sourceUrl,
+      title: requested.title,
+      field: requested.field,
+      shortPopularization: requested.shortPopularization,
+      mediumPopularization: requested.mediumPopularization,
+      fullPopularization: requested.fullPopularization,
+      fallbackTitle: polish.title,
+      fallbackField: polish.field,
+      fallbackShortPopularization: polish.shortPopularization,
+      fallbackMediumPopularization: polish.mediumPopularization,
+      fallbackFullPopularization: polish.fullPopularization,
+    })
+    .from(articles)
+    .innerJoin(
+      polish,
+      and(
+        eq(polish.articleId, articles.id),
+        eq(polish.locale, FALLBACK_LOCALE),
+      ),
+    )
+    .leftJoin(
+      requested,
+      and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
+    )
+    .where(eq(articles.slug, slug))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) {
+    return undefined;
+  }
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    authors: row.authors,
+    field: row.field ?? row.fallbackField,
+    title: row.title ?? row.fallbackTitle,
+    realTitle: row.realTitle,
+    shortPopularization:
+      row.shortPopularization ?? row.fallbackShortPopularization,
+    mediumPopularization:
+      row.mediumPopularization ?? row.fallbackMediumPopularization,
+    fullPopularization:
+      row.fullPopularization ?? row.fallbackFullPopularization,
+    imageUrl: row.imageUrl,
+    publishedAt: toIso(row.publishedAt),
+    featured: row.featured,
+    doi: row.doi,
+    year: row.year,
+    journal: row.journal,
+    sourceUrl: row.sourceUrl,
+  };
+}

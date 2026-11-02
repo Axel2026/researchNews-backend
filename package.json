@@ -1,0 +1,37 @@
+{
+  "name": "research-news-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/seed.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.10.6",
+    "postgres": "^3.4.7",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "drizzle-kit": "^0.31.6",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "6.0.3",
+    "vitest": "^4.0.8"
+  },
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=26"
+  }
+}

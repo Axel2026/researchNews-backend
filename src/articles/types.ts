@@ -1,0 +1,21 @@
+export type ArticleListItem = {
+  id: string;
+  slug: string;
+  title: string;
+  field: string;
+  shortPopularization: string;
+  imageUrl: string;
+  publishedAt: string;
+  featured: boolean;
+};
+
+export type ArticleDetail = ArticleListItem & {
+  authors: string[];
+  realTitle: string;
+  mediumPopularization: string;
+  fullPopularization: string;
+  doi: string | null;
+  year: number | null;
+  journal: string | null;
+  sourceUrl: string | null;
+};
