@@ -1,3 +1,5 @@
+import { isFieldOfStudy } from '../articles/category';
+
 const PLACEHOLDER_IMAGE = '/images/news-placeholder.svg';
 const MIN_ABSTRACT_LENGTH = 180;
 const MIN_TITLE_LENGTH = 8;
@@ -207,14 +209,55 @@ function authorNames(value: unknown): string[] {
   return names;
 }
 
+const DOI_JOURNALS: [RegExp, string][] = [
+  [/^10\.1038\/s41586/i, 'Nature'],
+  [/^10\.1038\/s41591/i, 'Nature Medicine'],
+  [/^10\.1038\/s41597/i, 'Scientific Data'],
+  [/^10\.1038\/s41598/i, 'Scientific Reports'],
+  [/^10\.1038\/s41467/i, 'Nature Communications'],
+  [/^10\.1038\/s41567/i, 'Nature Physics'],
+  [/^10\.1038\/s41564/i, 'Nature Microbiology'],
+  [/^10\.1038\/s41584/i, 'Nature Reviews Rheumatology'],
+  [/^10\.1038\/s41893/i, 'Nature Sustainability'],
+  [/^10\.1038\/s42003/i, 'Communications Biology'],
+  [/^10\.1038\/s42005/i, 'Communications Physics'],
+  [/^10\.1038\/s41431/i, 'European Journal of Human Genetics'],
+  [/^10\.1038\/s43247/i, 'Communications Earth & Environment'],
+  [/^10\.1038\/s43017/i, 'Nature Reviews Earth & Environment'],
+  [/^10\.1038\/s44161/i, 'Nature Cardiovascular Research'],
+  [/^10\.1038\/s44183/i, 'npj Ocean Sustainability'],
+  [/^10\.1073\//i, 'Proceedings of the National Academy of Sciences'],
+  [/^10\.1126\/science/i, 'Science'],
+  [/^10\.1016\/s0140-6736/i, 'The Lancet'],
+];
+
+function journalFromDoi(doi: string | null): string | null {
+  if (!doi) {
+    return null;
+  }
+
+  for (const [pattern, journal] of DOI_JOURNALS) {
+    if (pattern.test(doi)) {
+      return journal;
+    }
+  }
+
+  return null;
+}
+
 function journalName(work: CoreWork): string | null {
   if (Array.isArray(work.journals)) {
     for (const journal of work.journals as CoreJournal[]) {
       const title = cleanText(journal?.title);
-      if (title) {
+      if (title && title.toLowerCase() !== 'nature') {
         return title;
       }
     }
+  }
+
+  const fromDoi = journalFromDoi(normalizeDoi(work.doi));
+  if (fromDoi) {
+    return fromDoi;
   }
 
   if (typeof work.publisher === 'string') {
@@ -252,11 +295,7 @@ function fieldOfStudyName(value: unknown): string | null {
 }
 
 function fieldName(fieldOfStudy: string | null): string {
-  if (
-    fieldOfStudy &&
-    fieldOfStudy.length > 2 &&
-    !/^[A-Z]{2,6}$/.test(fieldOfStudy)
-  ) {
+  if (fieldOfStudy && isFieldOfStudy(fieldOfStudy)) {
     return fieldOfStudy;
   }
 

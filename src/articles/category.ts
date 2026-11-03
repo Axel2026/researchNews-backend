@@ -45,14 +45,20 @@ export function slugifyField(field: string): string {
   return slug || 'category';
 }
 
-export function articlesForCategorySlug<T extends { field: string }>(
+type Categorized = { field: string; fieldSlug?: string };
+
+function categorySlug(article: Categorized): string {
+  return article.fieldSlug ?? slugifyField(article.field);
+}
+
+export function articlesForCategorySlug<T extends Categorized>(
   articles: T[],
   slug: string,
 ): T[] {
-  return articles.filter((article) => slugifyField(article.field) === slug);
+  return articles.filter((article) => categorySlug(article) === slug);
 }
 
-export function uniqueCategories<T extends { field: string }>(
+export function uniqueCategories<T extends Categorized>(
   articles: T[],
 ): { slug: string; field: string }[] {
   const seen = new Map<string, string>();
@@ -62,7 +68,7 @@ export function uniqueCategories<T extends { field: string }>(
       continue;
     }
 
-    const slug = slugifyField(article.field);
+    const slug = categorySlug(article);
     if (!seen.has(slug)) {
       seen.set(slug, article.field);
     }

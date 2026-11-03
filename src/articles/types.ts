@@ -3,6 +3,7 @@ export type ArticleListItem = {
   slug: string;
   title: string;
   field: string;
+  fieldSlug: string;
   shortPopularization: string;
   imageUrl: string;
   publishedAt: string;

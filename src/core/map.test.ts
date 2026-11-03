@@ -45,6 +45,17 @@ describe('mapWork', () => {
     );
   });
 
+  it('maps Nature portfolio journals from the DOI when CORE omits the title', () => {
+    const paper = mapWork({
+      ...work,
+      journals: [{ title: null }],
+      publisher: 'Nature',
+      doi: '10.1038/s41598-024-52300-3',
+    });
+
+    expect(paper?.journal).toBe('Scientific Reports');
+  });
+
   it('skips works without a usable abstract or authors', () => {
     expect(mapWork({ ...work, abstract: 'Too short' })).toBeNull();
     expect(mapWork({ ...work, authors: [] })).toBeNull();

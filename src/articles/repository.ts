@@ -2,7 +2,11 @@ import { and, desc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
 import { articles, articleTranslations } from '../db/schema';
-import { articlesForCategorySlug, uniqueCategories } from './category';
+import {
+  articlesForCategorySlug,
+  slugifyField,
+  uniqueCategories,
+} from './category';
 import { FALLBACK_LOCALE, type Locale } from './locale';
 import type {
   ArticleCategory,
@@ -52,6 +56,7 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
     slug: row.slug,
     title: row.title ?? row.fallbackTitle,
     field: row.field ?? row.fallbackField,
+    fieldSlug: slugifyField(row.fallbackField),
     shortPopularization:
       row.shortPopularization ?? row.fallbackShortPopularization,
     imageUrl: row.imageUrl,
@@ -113,6 +118,7 @@ export async function getArticleBySlug(
     slug: row.slug,
     authors: row.authors,
     field: row.field ?? row.fallbackField,
+    fieldSlug: slugifyField(row.fallbackField),
     title: row.title ?? row.fallbackTitle,
     realTitle: row.realTitle,
     shortPopularization:

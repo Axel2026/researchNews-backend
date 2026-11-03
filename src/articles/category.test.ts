@@ -70,4 +70,24 @@ describe('uniqueCategories', () => {
       { slug: 'microbiology', field: 'Microbiology' },
     ]);
   });
+
+  it('groups locales by the canonical field slug', () => {
+    expect(
+      uniqueCategories([
+        {
+          field: 'Biochemistry and microbiology',
+          fieldSlug: 'biochemia-i-mikrobiologia',
+        },
+        {
+          field: 'Biochemia i mikrobiologia',
+          fieldSlug: 'biochemia-i-mikrobiologia',
+        },
+      ]),
+    ).toEqual([
+      {
+        slug: 'biochemia-i-mikrobiologia',
+        field: 'Biochemistry and microbiology',
+      },
+    ]);
+  });
 });
