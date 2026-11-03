@@ -8,12 +8,12 @@ const valid = {
   id: '1',
   slug: 'bombininy-h-niezwykle-peptydy-ze-skory-kumaka',
   authors: ['Giuseppina Mignogna'],
-  field: 'Biochemia i mikrobiologia',
-  title: 'Niezwykły składnik skóry kumaka pomaga peptydom przetrwać',
+  field: 'Biochemistry and microbiology',
+  title: 'An unusual skin peptide helps bombinins last longer',
   realTitle: 'Antibacterial and haemolytic peptides',
-  shortPopularization: 'Krótki tekst.',
-  mediumPopularization: 'Średni tekst.',
-  fullPopularization: 'Pełny tekst.',
+  shortPopularization: 'Short text.',
+  mediumPopularization: 'Medium text.',
+  fullPopularization: 'Full text.',
 };
 
 describe('papersSeedSchema', () => {
@@ -32,7 +32,7 @@ describe('papersSeedSchema', () => {
     expect(() =>
       papersSeedSchema.parse([
         valid,
-        { ...valid, id: '2', title: 'Inny tytuł' },
+        { ...valid, id: '2', title: 'Another title' },
       ]),
     ).toThrow(/duplicate slug/);
   });

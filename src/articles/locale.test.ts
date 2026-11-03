@@ -20,7 +20,7 @@ describe('parseLocale', () => {
 
 describe('pickTranslation', () => {
   const translations = [
-    { locale: 'pl', title: 'Po polsku' },
+    { locale: 'pl', title: 'Polish title' },
     { locale: 'en', title: 'In English' },
   ];
 
@@ -29,7 +29,7 @@ describe('pickTranslation', () => {
   });
 
   it('falls back to Polish when the requested locale is missing', () => {
-    expect(pickTranslation(translations, 'de')?.title).toBe('Po polsku');
+    expect(pickTranslation(translations, 'de')?.title).toBe('Polish title');
   });
 
   it('returns undefined when Polish is also missing', () => {
