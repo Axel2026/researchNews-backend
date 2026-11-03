@@ -2,8 +2,14 @@ import { and, desc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
 import { articles, articleTranslations } from '../db/schema';
+import { articlesForCategorySlug, uniqueCategories } from './category';
 import { FALLBACK_LOCALE, type Locale } from './locale';
-import type { ArticleDetail, ArticleListItem } from './types';
+import type {
+  ArticleCategory,
+  ArticleCategoryDetail,
+  ArticleDetail,
+  ArticleListItem,
+} from './types';
 
 const polish = alias(articleTranslations, 'pl');
 const requested = alias(articleTranslations, 'requested');
@@ -123,4 +129,24 @@ export async function getArticleBySlug(
     journal: row.journal,
     sourceUrl: row.sourceUrl,
   };
+}
+
+export async function listCategories(
+  locale: Locale,
+): Promise<ArticleCategory[]> {
+  return uniqueCategories(await listArticles(locale));
+}
+
+export async function getCategoryBySlug(
+  slug: string,
+  locale: Locale,
+): Promise<ArticleCategoryDetail | undefined> {
+  const articles = articlesForCategorySlug(await listArticles(locale), slug);
+  const field = articles[0]?.field;
+
+  if (!field) {
+    return undefined;
+  }
+
+  return { slug, field, articles };
 }

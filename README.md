@@ -52,6 +52,8 @@ API: [http://localhost:4000](http://localhost:4000)
 - `GET /health`
 - `GET /articles?locale=pl` — home list: featured first, then `publishedAt` descending
 - `GET /articles/:slug?locale=pl` — full record; 404 if missing
+- `GET /categories?locale=pl` — unique CORE `fieldOfStudy` values as `{ slug, field }`, alphabetically; journals and document types are omitted
+- `GET /categories/:slug?locale=pl` — `{ slug, field, articles }` for one field; 404 if nothing matches
 
 `locale` is optional and defaults to `pl`. Allowed: `en`, `pl`, `de`, `fr`, `es`. Missing translation → Polish content. Missing Polish translation → omitted from the list / 404.
 
@@ -61,10 +63,13 @@ API: [http://localhost:4000](http://localhost:4000)
 curl -s http://localhost:4000/health
 # {"ok":true,"supabase":true}
 curl -s "http://localhost:4000/articles?locale=pl"
+curl -s "http://localhost:4000/categories?locale=pl"
+curl -s "http://localhost:4000/categories/biochemia-i-mikrobiologia?locale=pl"
 curl -s "http://localhost:4000/articles/bombininy-h-niezwykle-peptydy-ze-skory-kumaka?locale=pl"
 curl -s "http://localhost:4000/articles/bombininy-h-niezwykle-peptydy-ze-skory-kumaka?locale=de"
 curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/articles/brak-takiego-sluga
+curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/categories/brak-takiej-kategorii
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:4000/articles?locale=it"
 ```
 
-`locale=de` with no German translation returns Polish text. Unknown slug → 404 `{ "error": "not_found" }`. `locale=it` → 400 `{ "error": "invalid_locale" }`.
+`locale=de` with no German translation returns Polish text. Unknown article or category slug → 404 `{ "error": "not_found" }`. `locale=it` → 400 `{ "error": "invalid_locale" }`.

@@ -19,3 +19,12 @@ export type ArticleDetail = ArticleListItem & {
   journal: string | null;
   sourceUrl: string | null;
 };
+
+export type ArticleCategory = {
+  slug: string;
+  field: string;
+};
+
+export type ArticleCategoryDetail = ArticleCategory & {
+  articles: ArticleListItem[];
+};

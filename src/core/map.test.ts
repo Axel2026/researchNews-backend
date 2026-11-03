@@ -56,6 +56,14 @@ describe('mapWork', () => {
     const paper = mapWork({ ...work, authors: ['Jane Roe'] });
     expect(paper?.authors).toEqual(['Jane Roe']);
   });
+
+  it('uses CORE fieldOfStudy and does not fall back to the journal', () => {
+    const paper = mapWork({ ...work, fieldOfStudy: undefined });
+    expect(paper?.field).toBe('Research');
+    expect(paper?.journal).toBe(
+      'Proceedings of the National Academy of Sciences',
+    );
+  });
 });
 
 describe('parseYear', () => {

@@ -68,7 +68,7 @@ export function mapWork(raw: unknown): MappedWork | null {
   const abstract = cleanText(work.abstract);
   const authors = authorNames(work.authors);
   const documentType = cleanText(work.documentType)?.toLowerCase();
-  const fieldOfStudy = cleanText(work.fieldOfStudy);
+  const fieldOfStudy = fieldOfStudyName(work.fieldOfStudy);
 
   if (!coreId || !realTitle || realTitle.length < MIN_TITLE_LENGTH) {
     return null;
@@ -114,7 +114,7 @@ export function mapWork(raw: unknown): MappedWork | null {
     authors,
     realTitle,
     title: realTitle,
-    field: fieldName(fieldOfStudy, journal, documentType),
+    field: fieldName(fieldOfStudy),
     shortPopularization: shortenAbstract(abstract),
     mediumPopularization: abstract,
     fullPopularization: abstract,
@@ -232,25 +232,32 @@ function journalName(work: CoreWork): string | null {
   return null;
 }
 
-function fieldName(
-  fieldOfStudy: string | null,
-  journal: string | null,
-  documentType: string | undefined,
-): string {
+function fieldOfStudyName(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const text = cleanText(
+        item && typeof item === 'object' && 'name' in item
+          ? (item as { name: unknown }).name
+          : item,
+      );
+      if (text) {
+        return text;
+      }
+    }
+
+    return null;
+  }
+
+  return cleanText(value);
+}
+
+function fieldName(fieldOfStudy: string | null): string {
   if (
     fieldOfStudy &&
     fieldOfStudy.length > 2 &&
-    !/^[A-Z]{1,3}$/.test(fieldOfStudy)
+    !/^[A-Z]{2,6}$/.test(fieldOfStudy)
   ) {
     return fieldOfStudy;
-  }
-
-  if (journal) {
-    return journal;
-  }
-
-  if (documentType) {
-    return documentType;
   }
 
   return 'Research';
