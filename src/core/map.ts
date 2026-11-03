@@ -1,0 +1,333 @@
+const PLACEHOLDER_IMAGE = '/images/news-placeholder.svg';
+const MIN_ABSTRACT_LENGTH = 180;
+const MIN_TITLE_LENGTH = 8;
+const MIN_YEAR = 1990;
+const MAX_YEAR = new Date().getUTCFullYear() + 1;
+const SKIP_DOCUMENT_TYPES = new Set([
+  'dataset',
+  'book',
+  'book part',
+  'thesis',
+  'report',
+  'presentation',
+]);
+
+export type MappedWork = {
+  id: string;
+  slug: string;
+  authors: string[];
+  realTitle: string;
+  title: string;
+  field: string;
+  shortPopularization: string;
+  mediumPopularization: string;
+  fullPopularization: string;
+  doi: string | null;
+  year: number | null;
+  journal: string | null;
+  sourceUrl: string | null;
+  imageUrl: string;
+  publishedAt: Date;
+};
+
+type CoreLink = {
+  type?: unknown;
+  url?: unknown;
+};
+
+type CoreJournal = {
+  title?: unknown;
+};
+
+type CoreWork = {
+  id?: unknown;
+  title?: unknown;
+  abstract?: unknown;
+  authors?: unknown;
+  doi?: unknown;
+  yearPublished?: unknown;
+  publishedDate?: unknown;
+  depositedDate?: unknown;
+  createdDate?: unknown;
+  publisher?: unknown;
+  journals?: unknown;
+  fieldOfStudy?: unknown;
+  documentType?: unknown;
+  links?: unknown;
+  downloadUrl?: unknown;
+};
+
+export function mapWork(raw: unknown): MappedWork | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const work = raw as CoreWork;
+  const coreId = workId(work.id);
+  const realTitle = cleanText(work.title);
+  const abstract = cleanText(work.abstract);
+  const authors = authorNames(work.authors);
+  const documentType = cleanText(work.documentType)?.toLowerCase();
+  const fieldOfStudy = cleanText(work.fieldOfStudy);
+
+  if (!coreId || !realTitle || realTitle.length < MIN_TITLE_LENGTH) {
+    return null;
+  }
+
+  if (authors.length === 0) {
+    return null;
+  }
+
+  if (!abstract || abstract.length < MIN_ABSTRACT_LENGTH) {
+    return null;
+  }
+
+  if (documentType && SKIP_DOCUMENT_TYPES.has(documentType)) {
+    return null;
+  }
+
+  if (fieldOfStudy && SKIP_DOCUMENT_TYPES.has(fieldOfStudy.toLowerCase())) {
+    return null;
+  }
+
+  const year =
+    parseYear(work.yearPublished) ?? yearFromDate(work.publishedDate);
+  const publishedAt =
+    parseDate(work.publishedDate) ??
+    (year ? new Date(Date.UTC(year, 0, 1)) : null) ??
+    parseDate(work.depositedDate) ??
+    parseDate(work.createdDate);
+
+  if (!publishedAt) {
+    return null;
+  }
+
+  const doi = normalizeDoi(work.doi);
+  const journal = journalName(work);
+  const sourceUrl =
+    linkUrl(work.links, 'display') ??
+    (doi ? `https://doi.org/${doi}` : `https://core.ac.uk/works/${coreId}`);
+
+  return {
+    id: `core-${coreId}`,
+    slug: `${slugify(realTitle)}-${coreId}`,
+    authors,
+    realTitle,
+    title: realTitle,
+    field: fieldName(fieldOfStudy, journal, documentType),
+    shortPopularization: shortenAbstract(abstract),
+    mediumPopularization: abstract,
+    fullPopularization: abstract,
+    doi,
+    year,
+    journal,
+    sourceUrl,
+    imageUrl:
+      linkUrl(work.links, 'thumbnail_l') ??
+      linkUrl(work.links, 'thumbnail_m') ??
+      PLACEHOLDER_IMAGE,
+    publishedAt,
+  };
+}
+
+export function parseYear(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const truncated = Math.trunc(value);
+    if (isUsableYear(truncated)) {
+      return truncated;
+    }
+
+    const digits = String(truncated);
+    if (digits.length === 8) {
+      const year = Number(digits.slice(0, 4));
+      if (isUsableYear(year)) {
+        return year;
+      }
+    }
+  }
+
+  if (typeof value === 'string') {
+    const match = value.trim().match(/^(19|20)\d{2}/);
+    if (match) {
+      const year = Number(match[0]);
+      if (isUsableYear(year)) {
+        return year;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function slugify(title: string): string {
+  const slug = title
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 72)
+    .replace(/-+$/g, '');
+
+  return slug || 'work';
+}
+
+function workId(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+
+  return null;
+}
+
+function authorNames(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const names: string[] = [];
+  for (const author of value) {
+    if (typeof author === 'string' && author.trim()) {
+      names.push(author.trim());
+      continue;
+    }
+
+    if (author && typeof author === 'object' && 'name' in author) {
+      const name = (author as { name: unknown }).name;
+      if (typeof name === 'string' && name.trim()) {
+        names.push(name.trim());
+      }
+    }
+  }
+
+  return names;
+}
+
+function journalName(work: CoreWork): string | null {
+  if (Array.isArray(work.journals)) {
+    for (const journal of work.journals as CoreJournal[]) {
+      const title = cleanText(journal?.title);
+      if (title) {
+        return title;
+      }
+    }
+  }
+
+  if (typeof work.publisher === 'string') {
+    return cleanText(work.publisher);
+  }
+
+  if (
+    work.publisher &&
+    typeof work.publisher === 'object' &&
+    'name' in work.publisher
+  ) {
+    return cleanText((work.publisher as { name: unknown }).name);
+  }
+
+  return null;
+}
+
+function fieldName(
+  fieldOfStudy: string | null,
+  journal: string | null,
+  documentType: string | undefined,
+): string {
+  if (
+    fieldOfStudy &&
+    fieldOfStudy.length > 2 &&
+    !/^[A-Z]{1,3}$/.test(fieldOfStudy)
+  ) {
+    return fieldOfStudy;
+  }
+
+  if (journal) {
+    return journal;
+  }
+
+  if (documentType) {
+    return documentType;
+  }
+
+  return 'Research';
+}
+
+function linkUrl(value: unknown, type: string): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  for (const link of value as CoreLink[]) {
+    if (
+      link?.type === type &&
+      typeof link.url === 'string' &&
+      link.url.startsWith('https://')
+    ) {
+      return link.url;
+    }
+  }
+
+  return null;
+}
+
+function normalizeDoi(value: unknown): string | null {
+  const raw = cleanText(value);
+  if (!raw) {
+    return null;
+  }
+
+  return raw.replace(/^https?:\/\/doi\.org\//i, '').replace(/\.$/, '') || null;
+}
+
+function shortenAbstract(abstract: string): string {
+  const sentences = abstract.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const short = sentences.slice(0, 2).join(' ');
+  if (short && short.length <= 420) {
+    return short;
+  }
+
+  if (abstract.length <= 420) {
+    return abstract;
+  }
+
+  return `${abstract.slice(0, 417).trimEnd()}...`;
+}
+
+function parseDate(value: unknown): Date | null {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  if (!isUsableYear(date.getUTCFullYear())) {
+    return null;
+  }
+
+  return date;
+}
+
+function yearFromDate(value: unknown): number | null {
+  const date = parseDate(value);
+  return date ? date.getUTCFullYear() : null;
+}
+
+function isUsableYear(year: number): boolean {
+  return year >= MIN_YEAR && year <= MAX_YEAR;
+}
+
+function cleanText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const text = value.replace(/\s+/g, ' ').trim();
+  return text || null;
+}

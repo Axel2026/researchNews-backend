@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { parseLocale } from './articles/locale';
 import { getArticleBySlug, listArticles } from './articles/repository';
+import { pingSupabase } from './supabase/client';
 
 export const app = new Hono();
 
@@ -12,7 +13,9 @@ app.use(
   }),
 );
 
-app.get('/health', (c) => c.json({ ok: true }));
+app.get('/health', async (c) => {
+  return c.json({ ok: true, supabase: await pingSupabase() });
+});
 
 app.get('/articles', async (c) => {
   const parsed = parseLocale(c.req.query('locale'));
