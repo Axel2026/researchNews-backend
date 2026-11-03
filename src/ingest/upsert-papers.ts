@@ -23,6 +23,7 @@ export type PopularizedArticle = {
   year: number | null;
   journal: string | null;
   sourceUrl: string | null;
+  downloadUrl?: string | null;
   translations: Record<'pl' | 'en', Translation>;
 };
 
@@ -53,6 +54,7 @@ export async function upsertPopularizedPaper(
     year: paper.year,
     journal: paper.journal,
     sourceUrl: paper.sourceUrl,
+    downloadUrl: paper.downloadUrl ?? null,
   };
 
   await db

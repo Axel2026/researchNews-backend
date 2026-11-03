@@ -28,6 +28,7 @@ export type MappedWork = {
   year: number | null;
   journal: string | null;
   sourceUrl: string | null;
+  downloadUrl: string | null;
   imageUrl: string;
   publishedAt: Date;
 };
@@ -106,9 +107,6 @@ export function mapWork(raw: unknown): MappedWork | null {
 
   const doi = normalizeDoi(work.doi);
   const journal = journalName(work);
-  const sourceUrl =
-    linkUrl(work.links, 'display') ??
-    (doi ? `https://doi.org/${doi}` : `https://core.ac.uk/works/${coreId}`);
 
   return {
     id: `core-${coreId}`,
@@ -123,7 +121,8 @@ export function mapWork(raw: unknown): MappedWork | null {
     doi,
     year,
     journal,
-    sourceUrl,
+    sourceUrl: originalPaperUrl(doi, work.links, coreId),
+    downloadUrl: paperDownloadUrl(work),
     imageUrl:
       linkUrl(work.links, 'thumbnail_l') ??
       linkUrl(work.links, 'thumbnail_m') ??
@@ -302,25 +301,63 @@ function fieldName(fieldOfStudy: string | null): string {
   return 'Research';
 }
 
+export function originalPaperUrl(
+  doi: string | null,
+  links: unknown,
+  coreId: string,
+): string {
+  if (doi) {
+    return `https://doi.org/${doi}`;
+  }
+
+  return linkUrl(links, 'display') ?? `https://core.ac.uk/works/${coreId}`;
+}
+
+export function resolveSourceUrl(
+  doi: string | null,
+  stored: string | null,
+): string | null {
+  if (doi) {
+    return `https://doi.org/${doi}`;
+  }
+
+  return stored;
+}
+
+export function paperDownloadUrl(work: {
+  downloadUrl?: unknown;
+  links?: unknown;
+}): string | null {
+  return httpsUrl(work.downloadUrl) ?? linkUrl(work.links, 'download');
+}
+
 function linkUrl(value: unknown, type: string): string | null {
   if (!Array.isArray(value)) {
     return null;
   }
 
   for (const link of value as CoreLink[]) {
-    if (
-      link?.type === type &&
-      typeof link.url === 'string' &&
-      link.url.startsWith('https://')
-    ) {
-      return link.url;
+    if (link?.type === type) {
+      const url = httpsUrl(link.url);
+      if (url) {
+        return url;
+      }
     }
   }
 
   return null;
 }
 
-function normalizeDoi(value: unknown): string | null {
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const url = value.trim();
+  return url.startsWith('https://') ? url : null;
+}
+
+export function normalizeDoi(value: unknown): string | null {
   const raw = cleanText(value);
   if (!raw) {
     return null;

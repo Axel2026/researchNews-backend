@@ -8,6 +8,20 @@
       "when": 1793661653078,
       "tag": "0000_panoramic_bloodstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793729359302,
+      "tag": "0001_material_hitman",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793729758828,
+      "tag": "0002_fast_warstar",
+      "breakpoints": true
     }
   ]
 }

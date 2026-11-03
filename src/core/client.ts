@@ -10,6 +10,7 @@ export type CoreSearchParams = {
 
 export type CoreClient = {
   searchWorks: (params: CoreSearchParams) => Promise<unknown[]>;
+  getWork: (id: string) => Promise<unknown>;
 };
 
 type SearchResponse = {
@@ -54,6 +55,31 @@ export function createCoreClient(options: {
       }
 
       return Array.isArray(payload.results) ? payload.results : [];
+    },
+    async getWork(id) {
+      const response = await fetchImpl(
+        `${baseUrl}/works/${encodeURIComponent(id)}?exclude=fullText`,
+        {
+          headers: {
+            Authorization: `Bearer ${options.apiKey}`,
+          },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        },
+      );
+
+      const payload = (await response.json()) as SearchResponse & {
+        id?: unknown;
+      };
+
+      if (!response.ok) {
+        const detail =
+          typeof payload.message === 'string'
+            ? payload.message
+            : response.statusText;
+        throw new Error(`CORE work failed (${response.status}): ${detail}`);
+      }
+
+      return payload;
     },
   };
 }

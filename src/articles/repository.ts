@@ -1,13 +1,16 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
 import { articles, articleTranslations } from '../db/schema';
+import { env } from '../env';
 import {
   articlesForCategorySlug,
   slugifyField,
   uniqueCategories,
 } from './category';
+import { articleImageUrl } from './image';
 import { FALLBACK_LOCALE, type Locale } from './locale';
+import { resolveSourceUrl } from '../core/map';
 import type {
   ArticleCategory,
   ArticleCategoryDetail,
@@ -22,12 +25,26 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
+function publicImageUrl(
+  slug: string,
+  storedUrl: string,
+  hasImage: boolean,
+): string {
+  return articleImageUrl({
+    slug,
+    storedUrl,
+    hasStoredImage: hasImage,
+    publicBase: env.API_PUBLIC_URL,
+  });
+}
+
 export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
   const rows = await db
     .select({
       id: articles.id,
       slug: articles.slug,
       imageUrl: articles.imageUrl,
+      hasImage: isNotNull(articles.imageContentType),
       publishedAt: articles.publishedAt,
       featured: articles.featured,
       title: requested.title,
@@ -59,7 +76,7 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
     fieldSlug: slugifyField(row.fallbackField),
     shortPopularization:
       row.shortPopularization ?? row.fallbackShortPopularization,
-    imageUrl: row.imageUrl,
+    imageUrl: publicImageUrl(row.slug, row.imageUrl, Boolean(row.hasImage)),
     publishedAt: toIso(row.publishedAt),
     featured: row.featured,
   }));
@@ -76,12 +93,14 @@ export async function getArticleBySlug(
       authors: articles.authors,
       realTitle: articles.realTitle,
       imageUrl: articles.imageUrl,
+      hasImage: isNotNull(articles.imageContentType),
       publishedAt: articles.publishedAt,
       featured: articles.featured,
       doi: articles.doi,
       year: articles.year,
       journal: articles.journal,
       sourceUrl: articles.sourceUrl,
+      downloadUrl: articles.downloadUrl,
       title: requested.title,
       field: requested.field,
       shortPopularization: requested.shortPopularization,
@@ -127,13 +146,14 @@ export async function getArticleBySlug(
       row.mediumPopularization ?? row.fallbackMediumPopularization,
     fullPopularization:
       row.fullPopularization ?? row.fallbackFullPopularization,
-    imageUrl: row.imageUrl,
+    imageUrl: publicImageUrl(row.slug, row.imageUrl, Boolean(row.hasImage)),
     publishedAt: toIso(row.publishedAt),
     featured: row.featured,
     doi: row.doi,
     year: row.year,
     journal: row.journal,
-    sourceUrl: row.sourceUrl,
+    sourceUrl: resolveSourceUrl(row.doi, row.sourceUrl),
+    downloadUrl: row.downloadUrl,
   };
 }
 
@@ -155,4 +175,28 @@ export async function getCategoryBySlug(
   }
 
   return { slug, field, articles };
+}
+
+export async function getArticleImage(
+  slug: string,
+): Promise<{ bytes: Buffer; contentType: string } | undefined> {
+  const rows = await db
+    .select({
+      image: articles.image,
+      contentType: articles.imageContentType,
+    })
+    .from(articles)
+    .where(eq(articles.slug, slug))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row?.image || !row.contentType) {
+    return undefined;
+  }
+
+  const bytes = Buffer.isBuffer(row.image)
+    ? row.image
+    : Buffer.from(row.image);
+
+  return { bytes, contentType: row.contentType };
 }

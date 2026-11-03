@@ -2,12 +2,19 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  customType,
   integer,
   pgTable,
   primaryKey,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 export const articles = pgTable(
   'articles',
@@ -17,12 +24,15 @@ export const articles = pgTable(
     authors: text('authors').array().notNull(),
     realTitle: text('real_title').notNull(),
     imageUrl: text('image_url').notNull(),
+    image: bytea('image'),
+    imageContentType: text('image_content_type'),
     featured: boolean('featured').notNull().default(false),
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
     doi: text('doi'),
     year: integer('year'),
     journal: text('journal'),
     sourceUrl: text('source_url'),
+    downloadUrl: text('download_url'),
   },
   (table) => [
     check('articles_authors_min', sql`cardinality(${table.authors}) >= 1`),

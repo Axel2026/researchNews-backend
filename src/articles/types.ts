@@ -19,6 +19,7 @@ export type ArticleDetail = ArticleListItem & {
   year: number | null;
   journal: string | null;
   sourceUrl: string | null;
+  downloadUrl: string | null;
 };
 
 export type ArticleCategory = {

@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { parseLocale } from './articles/locale';
 import {
   getArticleBySlug,
+  getArticleImage,
   getCategoryBySlug,
   listArticles,
   listCategories,
@@ -52,6 +53,20 @@ app.get('/categories/:slug', async (c) => {
   }
 
   return c.json(category);
+});
+
+app.get('/articles/:slug/image', async (c) => {
+  const image = await getArticleImage(c.req.param('slug'));
+  if (!image) {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  return new Response(image.bytes, {
+    headers: {
+      'Content-Type': image.contentType,
+      'Cache-Control': 'public, max-age=86400',
+    },
+  });
 });
 
 app.get('/articles/:slug', async (c) => {

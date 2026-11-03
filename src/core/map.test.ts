@@ -16,8 +16,10 @@ const work = {
   journals: [{ title: 'Proceedings of the National Academy of Sciences' }],
   fieldOfStudy: 'Microbiology',
   documentType: 'research article',
+  downloadUrl: 'https://core.ac.uk/download/639105039.pdf',
   links: [
     { type: 'display', url: 'https://core.ac.uk/works/168327997' },
+    { type: 'download', url: 'https://core.ac.uk/download/639105039.pdf' },
     { type: 'thumbnail_l', url: 'https://core.ac.uk/image/168327997/large' },
   ],
 };
@@ -36,7 +38,8 @@ describe('mapWork', () => {
       doi: '10.1073/pnas.2423574122',
       year: 2024,
       journal: 'Proceedings of the National Academy of Sciences',
-      sourceUrl: 'https://core.ac.uk/works/168327997',
+      sourceUrl: 'https://doi.org/10.1073/pnas.2423574122',
+      downloadUrl: 'https://core.ac.uk/download/639105039.pdf',
       imageUrl: 'https://core.ac.uk/image/168327997/large',
     });
     expect(paper?.shortPopularization.length).toBeGreaterThan(0);
@@ -74,6 +77,23 @@ describe('mapWork', () => {
     expect(paper?.journal).toBe(
       'Proceedings of the National Academy of Sciences',
     );
+  });
+
+  it('falls back to the CORE display page when there is no DOI', () => {
+    const paper = mapWork({ ...work, doi: undefined });
+    expect(paper?.sourceUrl).toBe('https://core.ac.uk/works/168327997');
+  });
+
+  it('omits downloadUrl when CORE has no PDF', () => {
+    const paper = mapWork({
+      ...work,
+      downloadUrl: '',
+      links: [
+        { type: 'display', url: 'https://core.ac.uk/works/168327997' },
+        { type: 'thumbnail_l', url: 'https://core.ac.uk/image/168327997/large' },
+      ],
+    });
+    expect(paper?.downloadUrl).toBeNull();
   });
 });
 

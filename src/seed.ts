@@ -4,10 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, queryClient } from './db/client';
 import { articles, articleTranslations } from './db/schema';
+import { PLACEHOLDER_IMAGE } from './articles/image';
 import { FALLBACK_LOCALE } from './articles/locale';
 import { papersSeedSchema } from './articles/validation';
 
-const PLACEHOLDER_IMAGE = '/images/news-placeholder.svg';
 const SEED_BASE = new Date('2026-11-03T12:00:00.000Z');
 
 const papersPath = path.resolve(
@@ -36,6 +36,7 @@ async function seed() {
         year: null,
         journal: null,
         sourceUrl: null,
+        downloadUrl: null,
       })
       .onConflictDoUpdate({
         target: articles.id,

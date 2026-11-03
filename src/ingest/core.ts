@@ -29,6 +29,7 @@ async function upsertPaper(paper: MappedWork): Promise<void> {
       year: paper.year,
       journal: paper.journal,
       sourceUrl: paper.sourceUrl,
+      downloadUrl: paper.downloadUrl,
     })
     .onConflictDoUpdate({
       target: articles.id,
@@ -42,6 +43,7 @@ async function upsertPaper(paper: MappedWork): Promise<void> {
         year: paper.year,
         journal: paper.journal,
         sourceUrl: paper.sourceUrl,
+        downloadUrl: paper.downloadUrl,
       },
     });
 

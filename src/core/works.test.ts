@@ -34,6 +34,7 @@ describe('fetchWorksForIngest', () => {
 
     const client = {
       searchWorks: async () => pages.shift() ?? [],
+      getWork: async () => ({}),
     };
 
     const papers = await fetchWorksForIngest(client, 20);
