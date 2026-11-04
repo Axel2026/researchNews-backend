@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
 import { articles, articleTranslations } from '../db/schema';
@@ -11,6 +11,7 @@ import {
 import { articleImageUrl } from './image';
 import { FALLBACK_LOCALE, type Locale } from './locale';
 import { resolveSourceUrl } from '../core/map';
+import { sortArticlesByPublicationDate } from './sort';
 import type {
   ArticleCategory,
   ArticleCategoryDetail,
@@ -71,7 +72,10 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
       requested,
       and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
     )
-    .orderBy(desc(articles.featured), desc(articles.publishedAt));
+    .orderBy(
+      desc(articles.featured),
+      sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) desc`,
+    );
 
   return rows.map((row) => ({
     id: row.id,
@@ -175,7 +179,9 @@ export async function getCategoryBySlug(
   slug: string,
   locale: Locale,
 ): Promise<ArticleCategoryDetail | undefined> {
-  const articles = articlesForCategorySlug(await listArticles(locale), slug);
+  const articles = sortArticlesByPublicationDate(
+    articlesForCategorySlug(await listArticles(locale), slug),
+  );
   const field = articles[0]?.field;
 
   if (!field) {
