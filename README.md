@@ -54,6 +54,8 @@ API: [http://localhost:4000](http://localhost:4000)
 - `GET /articles/:slug?locale=pl` — full record; 404 if missing
 - `GET /categories?locale=pl` — unique CORE `fieldOfStudy` values as `{ slug, field }`, alphabetically; journals and document types are omitted
 - `GET /categories/:slug?locale=pl` — `{ slug, field, articles }` for one field; 404 if nothing matches
+- `GET /me/bookmarks?locale=pl` — signed-in user's bookmarked slugs and matching articles (Bearer token)
+- `PUT /me/bookmarks` — `{ slug, bookmarked }` toggles a slug on `users.bookmarked_slugs`
 
 `locale` is optional and defaults to `pl`. Allowed: `en`, `pl`, `de`, `fr`, `es`. Missing translation → Polish content. Missing Polish translation → omitted from the list / 404.
 

@@ -40,6 +40,14 @@ export const articles = pgTable(
   ],
 );
 
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  bookmarkedSlugs: text('bookmarked_slugs')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+});
+
 export const articleTranslations = pgTable(
   'article_translations',
   {
