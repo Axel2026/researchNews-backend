@@ -28,6 +28,7 @@ export const articles = pgTable(
     imageContentType: text('image_content_type'),
     featured: boolean('featured').notNull().default(false),
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
+    paperPublishedAt: timestamp('paper_published_at', { withTimezone: true }),
     doi: text('doi'),
     year: integer('year'),
     journal: text('journal'),

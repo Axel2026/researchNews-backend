@@ -25,6 +25,10 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
+function toNullableIso(value: Date | null): string | null {
+  return value ? toIso(value) : null;
+}
+
 function publicImageUrl(
   slug: string,
   storedUrl: string,
@@ -46,6 +50,7 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
       imageUrl: articles.imageUrl,
       hasImage: isNotNull(articles.imageContentType),
       publishedAt: articles.publishedAt,
+      paperPublishedAt: articles.paperPublishedAt,
       featured: articles.featured,
       title: requested.title,
       field: requested.field,
@@ -78,6 +83,7 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
       row.shortPopularization ?? row.fallbackShortPopularization,
     imageUrl: publicImageUrl(row.slug, row.imageUrl, Boolean(row.hasImage)),
     publishedAt: toIso(row.publishedAt),
+    paperPublishedAt: toNullableIso(row.paperPublishedAt),
     featured: row.featured,
   }));
 }
@@ -95,6 +101,7 @@ export async function getArticleBySlug(
       imageUrl: articles.imageUrl,
       hasImage: isNotNull(articles.imageContentType),
       publishedAt: articles.publishedAt,
+      paperPublishedAt: articles.paperPublishedAt,
       featured: articles.featured,
       doi: articles.doi,
       year: articles.year,
@@ -148,6 +155,7 @@ export async function getArticleBySlug(
       row.fullPopularization ?? row.fallbackFullPopularization,
     imageUrl: publicImageUrl(row.slug, row.imageUrl, Boolean(row.hasImage)),
     publishedAt: toIso(row.publishedAt),
+    paperPublishedAt: toNullableIso(row.paperPublishedAt),
     featured: row.featured,
     doi: row.doi,
     year: row.year,

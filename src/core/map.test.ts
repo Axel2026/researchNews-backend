@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapWork, parseYear, slugify } from './map';
+import { mapWork, paperPublicationFromWork, parseYear, slugify } from './map';
 
 const abstract = `${'The study shows how open research data can be reused across labs. '.repeat(4)}Final sentence.`;
 
@@ -41,6 +41,7 @@ describe('mapWork', () => {
       sourceUrl: 'https://doi.org/10.1073/pnas.2423574122',
       downloadUrl: 'https://core.ac.uk/download/639105039.pdf',
       imageUrl: 'https://core.ac.uk/image/168327997/large',
+      paperPublishedAt: new Date('2024-03-12T00:00:00.000Z'),
     });
     expect(paper?.shortPopularization.length).toBeGreaterThan(0);
     expect(paper?.fullPopularization).toBe(
@@ -84,6 +85,11 @@ describe('mapWork', () => {
     expect(paper?.sourceUrl).toBe('https://core.ac.uk/works/168327997');
   });
 
+  it('uses yearPublished when CORE has no publishedDate', () => {
+    const paper = mapWork({ ...work, publishedDate: undefined });
+    expect(paper?.paperPublishedAt).toEqual(new Date(Date.UTC(2024, 0, 1)));
+  });
+
   it('omits downloadUrl when CORE has no PDF', () => {
     const paper = mapWork({
       ...work,
@@ -94,6 +100,31 @@ describe('mapWork', () => {
       ],
     });
     expect(paper?.downloadUrl).toBeNull();
+  });
+});
+
+describe('paperPublicationFromWork', () => {
+  it('reads publishedDate from a CORE work', () => {
+    expect(paperPublicationFromWork(work)).toEqual({
+      paperPublishedAt: new Date('2024-03-12T00:00:00.000Z'),
+      year: 2024,
+    });
+  });
+
+  it('falls back to yearPublished', () => {
+    expect(
+      paperPublicationFromWork({
+        yearPublished: 2021,
+        publishedDate: undefined,
+      }),
+    ).toEqual({
+      paperPublishedAt: new Date(Date.UTC(2021, 0, 1)),
+      year: 2021,
+    });
+  });
+
+  it('returns null when CORE has no publication date', () => {
+    expect(paperPublicationFromWork({})).toBeNull();
   });
 });
 

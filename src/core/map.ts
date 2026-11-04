@@ -14,6 +14,11 @@ const SKIP_DOCUMENT_TYPES = new Set([
   'presentation',
 ]);
 
+export type PaperPublication = {
+  paperPublishedAt: Date;
+  year: number | null;
+};
+
 export type MappedWork = {
   id: string;
   slug: string;
@@ -31,6 +36,7 @@ export type MappedWork = {
   downloadUrl: string | null;
   imageUrl: string;
   publishedAt: Date;
+  paperPublishedAt: Date | null;
 };
 
 type CoreLink = {
@@ -93,11 +99,11 @@ export function mapWork(raw: unknown): MappedWork | null {
     return null;
   }
 
-  const year =
-    parseYear(work.yearPublished) ?? yearFromDate(work.publishedDate);
+  const publication = paperPublicationFromWork(work);
+  const paperPublishedAt = publication?.paperPublishedAt ?? null;
+  const year = publication?.year ?? null;
   const publishedAt =
-    parseDate(work.publishedDate) ??
-    (year ? new Date(Date.UTC(year, 0, 1)) : null) ??
+    paperPublishedAt ??
     parseDate(work.depositedDate) ??
     parseDate(work.createdDate);
 
@@ -128,7 +134,29 @@ export function mapWork(raw: unknown): MappedWork | null {
       linkUrl(work.links, 'thumbnail_m') ??
       PLACEHOLDER_IMAGE,
     publishedAt,
+    paperPublishedAt,
   };
+}
+
+export function paperPublicationFromWork(
+  raw: unknown,
+): PaperPublication | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const work = raw as CoreWork;
+  const year =
+    parseYear(work.yearPublished) ?? yearFromDate(work.publishedDate);
+  const paperPublishedAt =
+    parseDate(work.publishedDate) ??
+    (year ? new Date(Date.UTC(year, 0, 1)) : null);
+
+  if (!paperPublishedAt) {
+    return null;
+  }
+
+  return { paperPublishedAt, year };
 }
 
 export function parseYear(value: unknown): number | null {

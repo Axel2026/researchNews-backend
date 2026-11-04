@@ -13,6 +13,7 @@
     "ingest:extra": "tsx src/ingest/upsert-extra.ts",
     "ingest:legacy": "tsx src/ingest/upsert-legacy.ts",
     "ingest:links": "tsx src/ingest/refresh-links.ts",
+    "ingest:dates": "tsx src/ingest/refresh-dates.ts",
     "ingest:images": "tsx src/ingest/upload-images.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

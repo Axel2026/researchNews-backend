@@ -19,6 +19,7 @@ export type PopularizedArticle = {
   imageUrl: string;
   featured?: boolean;
   publishedAt: string;
+  paperPublishedAt?: string | null;
   doi: string | null;
   year: number | null;
   journal: string | null;
@@ -44,12 +45,16 @@ export async function upsertPopularizedPaper(
   }
 
   const publishedAt = new Date(paper.publishedAt);
+  const paperPublishedAt = paper.paperPublishedAt
+    ? new Date(paper.paperPublishedAt)
+    : publishedAt;
   const articleValues = {
     slug: paper.slug,
     authors,
     realTitle: paper.realTitle,
     imageUrl: paper.imageUrl,
     publishedAt,
+    paperPublishedAt,
     doi: paper.doi,
     year: paper.year,
     journal: paper.journal,

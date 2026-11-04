@@ -12,6 +12,8 @@ export const paperSeedSchema = z.object({
   shortPopularization: nonEmpty,
   mediumPopularization: nonEmpty,
   fullPopularization: nonEmpty,
+  year: z.number().int().nullable().optional(),
+  paperPublishedAt: z.iso.datetime().nullable().optional(),
 });
 
 export type PaperSeed = z.infer<typeof paperSeedSchema>;

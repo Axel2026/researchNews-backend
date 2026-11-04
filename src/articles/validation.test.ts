@@ -37,6 +37,18 @@ describe('papersSeedSchema', () => {
     ).toThrow(/duplicate slug/);
   });
 
+  it('accepts optional paper publication metadata', () => {
+    expect(
+      papersSeedSchema.parse([
+        {
+          ...valid,
+          year: 1993,
+          paperPublishedAt: '1993-01-01T00:00:00.000Z',
+        },
+      ]),
+    ).toHaveLength(1);
+  });
+
   it('accepts the frontend seed JSON', () => {
     const file = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),

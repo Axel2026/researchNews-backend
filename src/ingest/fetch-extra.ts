@@ -119,6 +119,7 @@ async function main() {
     ...paper,
     field: JUNK_FIELD.test(paper.field) ? '' : paper.field,
     publishedAt: paper.publishedAt.toISOString(),
+    paperPublishedAt: paper.paperPublishedAt?.toISOString() ?? null,
     abstractChars: paper.fullPopularization.length,
   }));
   await writeFile(outPath, JSON.stringify(serializable, null, 2), 'utf8');

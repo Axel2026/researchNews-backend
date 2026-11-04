@@ -32,8 +32,11 @@ async function seed() {
         imageUrl: PLACEHOLDER_IMAGE,
         featured: index === 0,
         publishedAt,
+        paperPublishedAt: paper.paperPublishedAt
+          ? new Date(paper.paperPublishedAt)
+          : null,
         doi: null,
-        year: null,
+        year: paper.year ?? null,
         journal: null,
         sourceUrl: null,
         downloadUrl: null,
@@ -47,6 +50,10 @@ async function seed() {
           imageUrl: PLACEHOLDER_IMAGE,
           featured: index === 0,
           publishedAt,
+          paperPublishedAt: paper.paperPublishedAt
+            ? new Date(paper.paperPublishedAt)
+            : null,
+          year: paper.year ?? null,
         },
       });
 
