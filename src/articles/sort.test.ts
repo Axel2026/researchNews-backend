@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  sortArticlesByPublicationDate,
-  sortArticlesForHome,
-} from './sort';
+import { sortArticlesByPublicationDate, sortArticlesForHome } from './sort';
 
 describe('sortArticlesForHome', () => {
   it('puts featured first, then newest paperPublishedAt', () => {

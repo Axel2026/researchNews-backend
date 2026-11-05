@@ -45,7 +45,10 @@ async function fetchCoreWork(
     }
   }
 
-  const title = row.realTitle.replaceAll(/[:()]/g, ' ').replaceAll(/\s+/g, ' ').trim();
+  const title = row.realTitle
+    .replaceAll(/[:()]/g, ' ')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
   if (!title) {
     return null;
   }

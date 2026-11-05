@@ -96,7 +96,10 @@ describe('mapWork', () => {
       downloadUrl: '',
       links: [
         { type: 'display', url: 'https://core.ac.uk/works/168327997' },
-        { type: 'thumbnail_l', url: 'https://core.ac.uk/image/168327997/large' },
+        {
+          type: 'thumbnail_l',
+          url: 'https://core.ac.uk/image/168327997/large',
+        },
       ],
     });
     expect(paper?.downloadUrl).toBeNull();

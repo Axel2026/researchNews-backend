@@ -12,9 +12,7 @@ export function sortArticlesByPublicationDate<
     paperPublishedAt?: Date | string | null;
   },
 >(items: T[]): T[] {
-  return [...items].sort(
-    (a, b) => publicationTime(b) - publicationTime(a),
-  );
+  return [...items].sort((a, b) => publicationTime(b) - publicationTime(a));
 }
 
 export function sortArticlesForHome<

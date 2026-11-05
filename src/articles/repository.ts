@@ -208,9 +208,7 @@ export async function getArticleImage(
     return undefined;
   }
 
-  const bytes = Buffer.isBuffer(row.image)
-    ? row.image
-    : Buffer.from(row.image);
+  const bytes = Buffer.isBuffer(row.image) ? row.image : Buffer.from(row.image);
 
   return { bytes, contentType: row.contentType };
 }

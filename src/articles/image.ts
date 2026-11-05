@@ -11,10 +11,7 @@ export function articleImageUrl(options: {
     return `${base}/articles/${encodeURIComponent(options.slug)}/image`;
   }
 
-  if (
-    !options.storedUrl ||
-    options.storedUrl.startsWith('/images/articles/')
-  ) {
+  if (!options.storedUrl || options.storedUrl.startsWith('/images/articles/')) {
     return PLACEHOLDER_IMAGE;
   }
 
