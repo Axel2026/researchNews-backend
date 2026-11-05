@@ -56,6 +56,10 @@ API: [http://localhost:4000](http://localhost:4000)
 - `GET /categories/:slug?locale=pl` — `{ slug, field, articles }` for one field; 404 if nothing matches
 - `GET /me/bookmarks?locale=pl` — signed-in user's bookmarked slugs and matching articles (Bearer token)
 - `PUT /me/bookmarks` — `{ slug, bookmarked }` toggles a slug on `users.bookmarked_slugs`
+- `GET /articles/:slug/comments` — public discussion: top-level comments newest first, one reply layer oldest first; `{ comments, truncated }`
+- `POST /articles/:slug/comments` — Bearer `{ body, parentId? }`; 1–2000 characters; 10 comments / 10 minutes
+- `PATCH /comments/:id` — Bearer `{ body }`; author only
+- `DELETE /comments/:id` — Bearer; author only, soft-deletes
 
 `locale` is optional and defaults to `pl`. Allowed: `en`, `pl`, `de`, `fr`, `es`. Missing translation → Polish content. Missing Polish translation → omitted from the list / 404.
 

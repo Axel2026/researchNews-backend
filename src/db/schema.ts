@@ -3,6 +3,8 @@ import {
   boolean,
   check,
   customType,
+  foreignKey,
+  index,
   integer,
   pgTable,
   primaryKey,
@@ -46,7 +48,38 @@ export const users = pgTable('users', {
     .array()
     .notNull()
     .default(sql`'{}'::text[]`),
+  displayName: text('display_name'),
 });
+
+export const comments = pgTable(
+  'comments',
+  {
+    id: text('id').primaryKey(),
+    articleId: text('article_id')
+      .notNull()
+      .references(() => articles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    parentId: text('parent_id'),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('comments_article_created_idx').on(table.articleId, table.createdAt),
+    foreignKey({
+      columns: [table.parentId],
+      foreignColumns: [table.id],
+      name: 'comments_parent_id_comments_id_fk',
+    }).onDelete('cascade'),
+  ],
+);
 
 export const articleTranslations = pgTable(
   'article_translations',

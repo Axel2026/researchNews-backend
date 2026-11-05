@@ -11,6 +11,14 @@ import {
   listCategories,
 } from './articles/repository';
 import { listBookmarks, setBookmark } from './bookmarks/repository';
+import { createCommentSchema, updateCommentSchema } from './comments/body';
+import { displayNameFromEmail } from './comments/display-name';
+import {
+  createComment,
+  deleteComment,
+  listComments,
+  updateComment,
+} from './comments/repository';
 import { pingSupabase } from './supabase/client';
 
 const bookmarkUpdateSchema = z.object({
@@ -25,7 +33,7 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
     allowHeaders: ['Authorization', 'Content-Type'],
-    allowMethods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   }),
 );
 
@@ -79,6 +87,15 @@ app.get('/articles/:slug/image', async (c) => {
   });
 });
 
+app.get('/articles/:slug/comments', async (c) => {
+  const result = await listComments(c.req.param('slug'));
+  if (result === 'not_found') {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  return c.json(result);
+});
+
 app.get('/articles/:slug', async (c) => {
   const parsed = parseLocale(c.req.query('locale'));
   if (!parsed.ok) {
@@ -127,3 +144,80 @@ me.put('/bookmarks', async (c) => {
 });
 
 app.route('/me', me);
+
+const write = new Hono<AuthEnv>();
+
+write.post('/articles/:slug/comments', requireUser, async (c) => {
+  const parsed = createCommentSchema.safeParse(
+    await c.req.json().catch(() => null),
+  );
+  if (!parsed.success) {
+    return c.json({ error: 'invalid_body' }, 400);
+  }
+
+  const result = await createComment({
+    slug: c.req.param('slug'),
+    userId: c.get('userId'),
+    displayName: displayNameFromEmail(c.get('email')),
+    body: parsed.data.body,
+    parentId: parsed.data.parentId,
+  });
+
+  if (result === 'not_found') {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  if (result === 'invalid_parent') {
+    return c.json({ error: 'invalid_parent' }, 400);
+  }
+
+  if (result === 'rate_limited') {
+    return c.json({ error: 'rate_limited' }, 429);
+  }
+
+  return c.json(result, 201);
+});
+
+write.patch('/comments/:id', requireUser, async (c) => {
+  const parsed = updateCommentSchema.safeParse(
+    await c.req.json().catch(() => null),
+  );
+  if (!parsed.success) {
+    return c.json({ error: 'invalid_body' }, 400);
+  }
+
+  const result = await updateComment({
+    id: c.req.param('id'),
+    userId: c.get('userId'),
+    body: parsed.data.body,
+  });
+
+  if (result === 'not_found') {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  if (result === 'forbidden') {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
+  return c.json(result);
+});
+
+write.delete('/comments/:id', requireUser, async (c) => {
+  const result = await deleteComment({
+    id: c.req.param('id'),
+    userId: c.get('userId'),
+  });
+
+  if (result === 'not_found') {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  if (result === 'forbidden') {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
+  return c.json(result);
+});
+
+app.route('/', write);

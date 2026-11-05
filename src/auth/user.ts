@@ -4,6 +4,7 @@ import { supabase } from '../supabase/client';
 export type AuthEnv = {
   Variables: {
     userId: string;
+    email: string | null;
   };
 };
 
@@ -22,5 +23,6 @@ export const requireUser: MiddlewareHandler<AuthEnv> = async (c, next) => {
   }
 
   c.set('userId', data.user.id);
+  c.set('email', data.user.email ?? null);
   await next();
 };
