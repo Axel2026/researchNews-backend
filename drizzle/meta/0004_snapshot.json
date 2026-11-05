@@ -57,12 +57,8 @@
           "name": "article_translations_article_id_articles_id_fk",
           "tableFrom": "article_translations",
           "tableTo": "articles",
-          "columnsFrom": [
-            "article_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["article_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -70,10 +66,7 @@
       "compositePrimaryKeys": {
         "article_translations_article_id_locale_pk": {
           "name": "article_translations_article_id_locale_pk",
-          "columns": [
-            "article_id",
-            "locale"
-          ]
+          "columns": ["article_id", "locale"]
         }
       },
       "uniqueConstraints": {},
@@ -184,9 +177,7 @@
         "articles_slug_unique": {
           "name": "articles_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
