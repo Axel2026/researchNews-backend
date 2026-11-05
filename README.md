@@ -51,6 +51,7 @@ API: [http://localhost:4000](http://localhost:4000)
 
 - `GET /health`
 - `GET /articles?locale=pl` — home list: featured first, then `publishedAt` descending
+- `GET /sources?locale=pl` — paper sources as `{ id, name, url, summary }`, by `position` then name
 - `GET /articles/:slug?locale=pl` — full record; 404 if missing
 - `GET /categories?locale=pl` — unique CORE `fieldOfStudy` values as `{ slug, field }`, alphabetically; journals and document types are omitted
 - `GET /categories/:slug?locale=pl` — `{ slug, field, articles }` for one field; 404 if nothing matches
@@ -69,6 +70,7 @@ API: [http://localhost:4000](http://localhost:4000)
 curl -s http://localhost:4000/health
 # {"ok":true,"supabase":true}
 curl -s "http://localhost:4000/articles?locale=pl"
+curl -s "http://localhost:4000/sources?locale=pl"
 curl -s "http://localhost:4000/categories?locale=pl"
 curl -s "http://localhost:4000/categories/biochemia-i-mikrobiologia?locale=pl"
 curl -s "http://localhost:4000/articles/bombininy-h-niezwykle-peptydy-ze-skory-kumaka?locale=pl"

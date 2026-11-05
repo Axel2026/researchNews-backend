@@ -19,6 +19,7 @@ import {
   listComments,
   updateComment,
 } from './comments/repository';
+import { listSources } from './sources/repository';
 import { pingSupabase } from './supabase/client';
 
 const bookmarkUpdateSchema = z.object({
@@ -48,6 +49,15 @@ app.get('/articles', async (c) => {
   }
 
   return c.json(await listArticles(parsed.locale));
+});
+
+app.get('/sources', async (c) => {
+  const parsed = parseLocale(c.req.query('locale'));
+  if (!parsed.ok) {
+    return c.json({ error: 'invalid_locale' }, 400);
+  }
+
+  return c.json(await listSources(parsed.locale));
 });
 
 app.get('/categories', async (c) => {

@@ -96,3 +96,22 @@ export const articleTranslations = pgTable(
   },
   (table) => [primaryKey({ columns: [table.articleId, table.locale] })],
 );
+
+export const sources = pgTable('sources', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  position: integer('position').notNull().default(0),
+});
+
+export const sourceTranslations = pgTable(
+  'source_translations',
+  {
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => sources.id, { onDelete: 'cascade' }),
+    locale: text('locale').notNull(),
+    summary: text('summary').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.sourceId, table.locale] })],
+);
