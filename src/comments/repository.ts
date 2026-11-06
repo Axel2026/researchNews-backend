@@ -1,6 +1,7 @@
 import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { articles, comments, users } from '../db/schema';
+import { isWithinEditWindow } from './edit-window';
 import { isValidParent } from './parent';
 import {
   assembleThread,
@@ -158,7 +159,7 @@ export async function updateComment(input: {
   id: string;
   userId: string;
   body: string;
-}): Promise<CommentReply | 'not_found' | 'forbidden'> {
+}): Promise<CommentReply | 'not_found' | 'forbidden' | 'edit_expired'> {
   const rows = await db
     .select({
       id: comments.id,
@@ -183,6 +184,10 @@ export async function updateComment(input: {
 
   if (existing.userId !== input.userId) {
     return 'forbidden';
+  }
+
+  if (!isWithinEditWindow(existing.createdAt)) {
+    return 'edit_expired';
   }
 
   const now = new Date();

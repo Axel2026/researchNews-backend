@@ -210,6 +210,10 @@ write.patch('/comments/:id', requireUser, async (c) => {
     return c.json({ error: 'forbidden' }, 403);
   }
 
+  if (result === 'edit_expired') {
+    return c.json({ error: 'edit_expired' }, 403);
+  }
+
   return c.json(result);
 });
 
