@@ -7,6 +7,7 @@ import {
   getArticleBySlug,
   getArticleImage,
   getCategoryBySlug,
+  listArticlePage,
   listArticles,
   listCategories,
   recordArticleView,
@@ -15,6 +16,7 @@ import {
   articleDateBounds,
   parseArticleDate,
   parseArticleField,
+  parseArticlePage,
   parseArticleQuery,
   parseArticleSort,
 } from './articles/search';
@@ -62,7 +64,16 @@ app.get('/articles', async (c) => {
   const sort = parseArticleSort(c.req.query('sort'));
   const from = parseArticleDate(c.req.query('from'));
   const to = parseArticleDate(c.req.query('to'));
-  if (!query.ok || !author.ok || !field.ok || !sort.ok || !from.ok || !to.ok) {
+  const page = parseArticlePage(c.req.query('page'));
+  if (
+    !query.ok ||
+    !author.ok ||
+    !field.ok ||
+    !sort.ok ||
+    !from.ok ||
+    !to.ok ||
+    !page.ok
+  ) {
     return c.json({ error: 'invalid_query' }, 400);
   }
 
@@ -71,15 +82,21 @@ app.get('/articles', async (c) => {
     return c.json({ error: 'invalid_query' }, 400);
   }
 
+  const options = {
+    query: query.query,
+    author: author.query,
+    field: field.field,
+    sort: sort.sort,
+    start: bounds.start,
+    endExclusive: bounds.endExclusive,
+  };
+
+  if (page.page === undefined) {
+    return c.json(await listArticles(parsed.locale, options));
+  }
+
   return c.json(
-    await listArticles(parsed.locale, {
-      query: query.query,
-      author: author.query,
-      field: field.field,
-      sort: sort.sort,
-      start: bounds.start,
-      endExclusive: bounds.endExclusive,
-    }),
+    await listArticlePage(parsed.locale, { ...options, page: page.page }),
   );
 });
 
@@ -107,7 +124,16 @@ app.get('/categories/:slug', async (c) => {
     return c.json({ error: 'invalid_locale' }, 400);
   }
 
-  const category = await getCategoryBySlug(c.req.param('slug'), parsed.locale);
+  const page = parseArticlePage(c.req.query('page'));
+  if (!page.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  const category = await getCategoryBySlug(
+    c.req.param('slug'),
+    parsed.locale,
+    page.page ?? 1,
+  );
   if (!category) {
     return c.json({ error: 'not_found' }, 404);
   }

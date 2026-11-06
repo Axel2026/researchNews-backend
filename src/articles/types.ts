@@ -10,10 +10,10 @@ export type ArticleListItem = {
   paperPublishedAt: string | null;
   featured: boolean;
   recentViews: number;
+  authors: string[];
 };
 
 export type ArticleDetail = ArticleListItem & {
-  authors: string[];
   realTitle: string;
   mediumPopularization: string;
   fullPopularization: string;
@@ -29,6 +29,11 @@ export type ArticleCategory = {
   field: string;
 };
 
-export type ArticleCategoryDetail = ArticleCategory & {
+export type ArticlePage = {
   articles: ArticleListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
 };
+
+export type ArticleCategoryDetail = ArticleCategory & ArticlePage;

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { db, queryClient } from './db/client';
 import { articles, articleTranslations } from './db/schema';
 import { PLACEHOLDER_IMAGE } from './articles/image';
+import { slugifyField } from './articles/category';
 import { FALLBACK_LOCALE } from './articles/locale';
 import { papersSeedSchema } from './articles/validation';
 
@@ -40,6 +41,7 @@ async function seed() {
         journal: null,
         sourceUrl: null,
         downloadUrl: null,
+        fieldSlug: slugifyField(paper.field),
       })
       .onConflictDoUpdate({
         target: articles.id,
@@ -54,6 +56,7 @@ async function seed() {
             ? new Date(paper.paperPublishedAt)
             : null,
           year: paper.year ?? null,
+          fieldSlug: slugifyField(paper.field),
         },
       });
 

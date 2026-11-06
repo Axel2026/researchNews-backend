@@ -1,6 +1,6 @@
 import { db } from '../db/client';
 import { articles, articleTranslations } from '../db/schema';
-import { isFieldOfStudy } from '../articles/category';
+import { isFieldOfStudy, slugifyField } from '../articles/category';
 import { uniqueAuthors } from './authors';
 
 export type Translation = {
@@ -60,6 +60,7 @@ export async function upsertPopularizedPaper(
     journal: paper.journal,
     sourceUrl: paper.sourceUrl,
     downloadUrl: paper.downloadUrl ?? null,
+    fieldSlug: slugifyField(paper.translations.pl.field),
   };
 
   await db

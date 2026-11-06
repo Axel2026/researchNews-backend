@@ -3,6 +3,7 @@ import { db, queryClient } from '../db/client';
 import { articles, articleTranslations } from '../db/schema';
 import { createCoreClient } from '../core/client';
 import { CORE_INGEST_LIMIT, fetchWorksForIngest } from '../core/works';
+import { slugifyField } from '../articles/category';
 import { FALLBACK_LOCALE } from '../articles/locale';
 import type { MappedWork } from '../core/map';
 
@@ -31,6 +32,7 @@ async function upsertPaper(paper: MappedWork): Promise<void> {
       journal: paper.journal,
       sourceUrl: paper.sourceUrl,
       downloadUrl: paper.downloadUrl,
+      fieldSlug: slugifyField(paper.field),
     })
     .onConflictDoUpdate({
       target: articles.id,
@@ -46,6 +48,7 @@ async function upsertPaper(paper: MappedWork): Promise<void> {
         journal: paper.journal,
         sourceUrl: paper.sourceUrl,
         downloadUrl: paper.downloadUrl,
+        fieldSlug: slugifyField(paper.field),
       },
     });
 

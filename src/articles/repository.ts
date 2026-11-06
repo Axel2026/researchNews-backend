@@ -1,24 +1,24 @@
-import { and, desc, eq, isNotNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
 import { articles, articleTranslations, articleViewDays } from '../db/schema';
 import { RECENT_VIEW_DAYS, utcDayString } from './views';
 import { env } from '../env';
-import {
-  articlesForCategorySlug,
-  slugifyField,
-  uniqueCategories,
-} from './category';
+import { uniqueCategories } from './category';
 import { articleImageUrl } from './image';
 import { FALLBACK_LOCALE, type Locale } from './locale';
 import { resolveSourceUrl } from '../core/map';
-import { ilikeContainsPattern, type ArticleListSort } from './search';
-import { sortArticlesByPublicationDate } from './sort';
+import {
+  ARTICLE_PAGE_SIZE,
+  ilikeContainsPattern,
+  type ArticleListSort,
+} from './search';
 import type {
   ArticleCategory,
   ArticleCategoryDetail,
   ArticleDetail,
   ArticleListItem,
+  ArticlePage,
 } from './types';
 
 const polish = alias(articleTranslations, 'pl');
@@ -59,29 +59,62 @@ const recentViews = db
 
 const publicationDateDesc = sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) desc`;
 
-export async function listArticles(
-  locale: Locale,
-  options: {
-    query?: string;
-    sort?: ArticleListSort;
-    author?: string;
-    field?: string;
-    start?: Date;
-    endExclusive?: Date;
-  } = {},
-): Promise<ArticleListItem[]> {
-  const conditions = [];
+type ArticleQueryOptions = {
+  query?: string;
+  sort?: ArticleListSort;
+  author?: string;
+  field?: string;
+  start?: Date;
+  endExclusive?: Date;
+};
+
+const articleListColumns = {
+  id: articles.id,
+  slug: articles.slug,
+  authors: articles.authors,
+  fieldSlug: articles.fieldSlug,
+  imageUrl: articles.imageUrl,
+  hasImage: isNotNull(articles.imageContentType),
+  publishedAt: articles.publishedAt,
+  paperPublishedAt: articles.paperPublishedAt,
+  featured: articles.featured,
+  recentViews: recentViews.views,
+  title: requested.title,
+  field: requested.field,
+  shortPopularization: requested.shortPopularization,
+  fallbackTitle: polish.title,
+  fallbackField: polish.field,
+  fallbackShortPopularization: polish.shortPopularization,
+};
+
+function polishJoin() {
+  return and(
+    eq(polish.articleId, articles.id),
+    eq(polish.locale, FALLBACK_LOCALE),
+  );
+}
+
+function requestedJoin(locale: Locale) {
+  return and(
+    eq(requested.articleId, articles.id),
+    eq(requested.locale, locale),
+  );
+}
+
+function articleConditions(options: ArticleQueryOptions): SQL[] {
+  const conditions: SQL[] = [];
 
   if (options.query) {
     const pattern = ilikeContainsPattern(options.query);
-    conditions.push(
-      or(
-        sql`coalesce(${requested.title}, ${polish.title}) ilike ${pattern}`,
-        sql`coalesce(${requested.shortPopularization}, ${polish.shortPopularization}) ilike ${pattern}`,
-        sql`coalesce(${requested.field}, ${polish.field}) ilike ${pattern}`,
-        sql`${articles.realTitle} ilike ${pattern}`,
-      ),
+    const matchesText = or(
+      sql`coalesce(${requested.title}, ${polish.title}) ilike ${pattern}`,
+      sql`coalesce(${requested.shortPopularization}, ${polish.shortPopularization}) ilike ${pattern}`,
+      sql`coalesce(${requested.field}, ${polish.field}) ilike ${pattern}`,
+      sql`${articles.realTitle} ilike ${pattern}`,
     );
+    if (matchesText) {
+      conditions.push(matchesText);
+    }
   }
 
   if (options.author) {
@@ -92,6 +125,10 @@ export async function listArticles(
         where author_name ilike ${ilikeContainsPattern(options.author)}
       )`,
     );
+  }
+
+  if (options.field) {
+    conditions.push(eq(articles.fieldSlug, options.field));
   }
 
   if (options.start) {
@@ -106,52 +143,58 @@ export async function listArticles(
     );
   }
 
-  const orderBy =
-    options.sort === 'popular'
-      ? [sql`coalesce(${recentViews.views}, 0) desc`, publicationDateDesc]
-      : options.sort === 'newest'
-        ? [publicationDateDesc]
-        : [desc(articles.featured), publicationDateDesc];
+  return conditions;
+}
 
-  const rows = await db
-    .select({
-      id: articles.id,
-      slug: articles.slug,
-      imageUrl: articles.imageUrl,
-      hasImage: isNotNull(articles.imageContentType),
-      publishedAt: articles.publishedAt,
-      paperPublishedAt: articles.paperPublishedAt,
-      featured: articles.featured,
-      recentViews: recentViews.views,
-      title: requested.title,
-      field: requested.field,
-      shortPopularization: requested.shortPopularization,
-      fallbackTitle: polish.title,
-      fallbackField: polish.field,
-      fallbackShortPopularization: polish.shortPopularization,
-    })
-    .from(articles)
-    .innerJoin(
-      polish,
-      and(
-        eq(polish.articleId, articles.id),
-        eq(polish.locale, FALLBACK_LOCALE),
-      ),
-    )
-    .leftJoin(
-      requested,
-      and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
-    )
-    .leftJoin(recentViews, eq(recentViews.articleId, articles.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(...orderBy);
+function articleOrder(sort: ArticleListSort | undefined): SQL[] {
+  const idOrder = asc(articles.id);
 
-  const items = rows.map((row) => ({
+  if (sort === 'popular') {
+    return [
+      sql`coalesce(${recentViews.views}, 0) desc`,
+      publicationDateDesc,
+      idOrder,
+    ];
+  }
+
+  if (sort === 'newest') {
+    return [publicationDateDesc, idOrder];
+  }
+
+  return [desc(articles.featured), publicationDateDesc, idOrder];
+}
+
+function articleWhere(options: ArticleQueryOptions) {
+  const conditions = articleConditions(options);
+  return conditions.length > 0 ? and(...conditions) : undefined;
+}
+
+type ArticleListRow = {
+  id: string;
+  slug: string;
+  authors: string[];
+  fieldSlug: string;
+  imageUrl: string;
+  hasImage: unknown;
+  publishedAt: Date;
+  paperPublishedAt: Date | null;
+  featured: boolean;
+  recentViews: number | null;
+  title: string | null;
+  field: string | null;
+  shortPopularization: string | null;
+  fallbackTitle: string;
+  fallbackField: string;
+  fallbackShortPopularization: string;
+};
+
+function toListItem(row: ArticleListRow): ArticleListItem {
+  return {
     id: row.id,
     slug: row.slug,
     title: row.title ?? row.fallbackTitle,
     field: row.field ?? row.fallbackField,
-    fieldSlug: slugifyField(row.fallbackField),
+    fieldSlug: row.fieldSlug,
     shortPopularization:
       row.shortPopularization ?? row.fallbackShortPopularization,
     imageUrl: publicImageUrl(row.slug, row.imageUrl, Boolean(row.hasImage)),
@@ -159,13 +202,60 @@ export async function listArticles(
     paperPublishedAt: toNullableIso(row.paperPublishedAt),
     featured: row.featured,
     recentViews: row.recentViews ?? 0,
-  }));
+    authors: row.authors,
+  };
+}
 
-  if (!options.field) {
-    return items;
-  }
+function selectArticles(locale: Locale) {
+  return db
+    .select(articleListColumns)
+    .from(articles)
+    .innerJoin(polish, polishJoin())
+    .leftJoin(requested, requestedJoin(locale))
+    .leftJoin(recentViews, eq(recentViews.articleId, articles.id));
+}
 
-  return articlesForCategorySlug(items, options.field);
+function countArticles(locale: Locale) {
+  return db
+    .select({ total: sql<number>`cast(count(*) as int)` })
+    .from(articles)
+    .innerJoin(polish, polishJoin())
+    .leftJoin(requested, requestedJoin(locale))
+    .leftJoin(recentViews, eq(recentViews.articleId, articles.id));
+}
+
+export async function listArticles(
+  locale: Locale,
+  options: ArticleQueryOptions = {},
+): Promise<ArticleListItem[]> {
+  const rows = await selectArticles(locale)
+    .where(articleWhere(options))
+    .orderBy(...articleOrder(options.sort));
+
+  return rows.map(toListItem);
+}
+
+export async function listArticlePage(
+  locale: Locale,
+  options: ArticleQueryOptions & { page: number },
+): Promise<ArticlePage> {
+  const where = articleWhere(options);
+  const pageSize = ARTICLE_PAGE_SIZE;
+  const [countRows, rows] = await Promise.all([
+    countArticles(locale).where(where),
+    selectArticles(locale)
+      .where(where)
+      .orderBy(...articleOrder(options.sort))
+      .limit(pageSize)
+      .offset((options.page - 1) * pageSize),
+  ]);
+
+  return {
+    articles: rows.map(toListItem),
+    page: options.page,
+    pageSize,
+    total: Number(countRows[0]?.total ?? 0),
+  };
 }
 
 export async function recordArticleView(
@@ -203,6 +293,7 @@ export async function getArticleBySlug(
     .select({
       id: articles.id,
       slug: articles.slug,
+      fieldSlug: articles.fieldSlug,
       authors: articles.authors,
       realTitle: articles.realTitle,
       imageUrl: articles.imageUrl,
@@ -251,7 +342,7 @@ export async function getArticleBySlug(
     slug: row.slug,
     authors: row.authors,
     field: row.field ?? row.fallbackField,
-    fieldSlug: slugifyField(row.fallbackField),
+    fieldSlug: row.fieldSlug,
     title: row.title ?? row.fallbackTitle,
     realTitle: row.realTitle,
     shortPopularization:
@@ -282,17 +373,20 @@ export async function listCategories(
 export async function getCategoryBySlug(
   slug: string,
   locale: Locale,
+  page = 1,
 ): Promise<ArticleCategoryDetail | undefined> {
-  const articles = sortArticlesByPublicationDate(
-    articlesForCategorySlug(await listArticles(locale), slug),
-  );
-  const field = articles[0]?.field;
+  const result = await listArticlePage(locale, {
+    field: slug,
+    sort: 'newest',
+    page,
+  });
+  const field = result.articles[0]?.field;
 
   if (!field) {
     return undefined;
   }
 
-  return { slug, field, articles };
+  return { slug, field, ...result };
 }
 
 export async function getArticleImage(

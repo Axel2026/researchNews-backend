@@ -4,6 +4,7 @@ import {
   ilikeContainsPattern,
   parseArticleDate,
   parseArticleField,
+  parseArticlePage,
   parseArticleQuery,
   parseArticleSort,
 } from './search';
@@ -137,6 +138,29 @@ describe('parseArticleField', () => {
   it('rejects labels and path fragments', () => {
     expect(parseArticleField('../x')).toEqual({ ok: false });
     expect(parseArticleField('Biochemistry')).toEqual({ ok: false });
+  });
+});
+
+describe('parseArticlePage', () => {
+  it('treats a missing value as an unpaginated list', () => {
+    expect(parseArticlePage(undefined)).toEqual({
+      ok: true,
+      page: undefined,
+    });
+  });
+
+  it('accepts a positive integer without leading zeros', () => {
+    expect(parseArticlePage('1')).toEqual({ ok: true, page: 1 });
+    expect(parseArticlePage('2')).toEqual({ ok: true, page: 2 });
+  });
+
+  it('rejects blank, zero, fractions and padded numbers', () => {
+    expect(parseArticlePage('')).toEqual({ ok: false });
+    expect(parseArticlePage('0')).toEqual({ ok: false });
+    expect(parseArticlePage('-1')).toEqual({ ok: false });
+    expect(parseArticlePage('1.5')).toEqual({ ok: false });
+    expect(parseArticlePage('01')).toEqual({ ok: false });
+    expect(parseArticlePage('2abc')).toEqual({ ok: false });
   });
 });
 

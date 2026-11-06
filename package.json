@@ -9,6 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/seed.ts",
+    "db:backfill-field-slug": "tsx src/db/backfill-field-slug.ts",
     "ingest:core": "tsx src/ingest/core.ts",
     "ingest:extra": "tsx src/ingest/upsert-extra.ts",
     "ingest:legacy": "tsx src/ingest/upsert-legacy.ts",

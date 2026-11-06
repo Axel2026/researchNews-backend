@@ -1,4 +1,7 @@
 export const MAX_ARTICLE_QUERY_LENGTH = 200;
+export const ARTICLE_PAGE_SIZE = 12;
+
+const PAGE_NUMBER = /^[1-9][0-9]*$/;
 
 export type ArticleListSort = 'default' | 'newest' | 'popular';
 
@@ -97,6 +100,20 @@ export function parseArticleField(
   }
 
   return { ok: true, field: raw };
+}
+
+export function parseArticlePage(
+  raw: string | undefined,
+): { ok: true; page: number | undefined } | { ok: false } {
+  if (raw === undefined) {
+    return { ok: true, page: undefined };
+  }
+
+  if (!PAGE_NUMBER.test(raw)) {
+    return { ok: false };
+  }
+
+  return { ok: true, page: Number(raw) };
 }
 
 export function ilikeContainsPattern(query: string): string {

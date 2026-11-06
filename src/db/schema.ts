@@ -37,9 +37,11 @@ export const articles = pgTable(
     journal: text('journal'),
     sourceUrl: text('source_url'),
     downloadUrl: text('download_url'),
+    fieldSlug: text('field_slug').notNull(),
   },
   (table) => [
     check('articles_authors_min', sql`cardinality(${table.authors}) >= 1`),
+    index('articles_field_slug_idx').on(table.fieldSlug),
   ],
 );
 
