@@ -1,7 +1,8 @@
 import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
-import { articles, articleTranslations } from '../db/schema';
+import { articles, articleTranslations, articleViewDays } from '../db/schema';
+import { RECENT_VIEW_DAYS, utcDayString } from './views';
 import { env } from '../env';
 import {
   articlesForCategorySlug,
@@ -43,6 +44,18 @@ function publicImageUrl(
   });
 }
 
+const recentViews = db
+  .select({
+    articleId: articleViewDays.articleId,
+    views: sql<number>`cast(sum(${articleViewDays.views}) as int)`.as('views'),
+  })
+  .from(articleViewDays)
+  .where(
+    sql`${articleViewDays.day} >= current_date - ${sql.raw(String(RECENT_VIEW_DAYS - 1))}`,
+  )
+  .groupBy(articleViewDays.articleId)
+  .as('recent_views');
+
 export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
   const rows = await db
     .select({
@@ -53,6 +66,7 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
       publishedAt: articles.publishedAt,
       paperPublishedAt: articles.paperPublishedAt,
       featured: articles.featured,
+      recentViews: recentViews.views,
       title: requested.title,
       field: requested.field,
       shortPopularization: requested.shortPopularization,
@@ -72,6 +86,7 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
       requested,
       and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
     )
+    .leftJoin(recentViews, eq(recentViews.articleId, articles.id))
     .orderBy(
       desc(articles.featured),
       sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) desc`,
@@ -89,7 +104,35 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
     publishedAt: toIso(row.publishedAt),
     paperPublishedAt: toNullableIso(row.paperPublishedAt),
     featured: row.featured,
+    recentViews: row.recentViews ?? 0,
   }));
+}
+
+export async function recordArticleView(
+  slug: string,
+): Promise<'ok' | 'not_found'> {
+  const rows = await db
+    .select({ id: articles.id })
+    .from(articles)
+    .where(eq(articles.slug, slug))
+    .limit(1);
+
+  const article = rows[0];
+  if (!article) {
+    return 'not_found';
+  }
+
+  const day = utcDayString(new Date());
+
+  await db
+    .insert(articleViewDays)
+    .values({ articleId: article.id, day, views: 1 })
+    .onConflictDoUpdate({
+      target: [articleViewDays.articleId, articleViewDays.day],
+      set: { views: sql`${articleViewDays.views} + 1` },
+    });
+
+  return 'ok';
 }
 
 export async function getArticleBySlug(
@@ -161,6 +204,7 @@ export async function getArticleBySlug(
     publishedAt: toIso(row.publishedAt),
     paperPublishedAt: toNullableIso(row.paperPublishedAt),
     featured: row.featured,
+    recentViews: 0,
     doi: row.doi,
     year: row.year,
     journal: row.journal,

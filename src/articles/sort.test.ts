@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { sortArticlesByPublicationDate, sortArticlesForHome } from './sort';
+import {
+  sortArticlesByPublicationDate,
+  sortArticlesByRecentViews,
+  sortArticlesForHome,
+} from './sort';
 
 describe('sortArticlesForHome', () => {
   it('puts featured first, then newest paperPublishedAt', () => {
@@ -42,5 +46,45 @@ describe('sortArticlesForHome', () => {
     expect(
       sortArticlesByPublicationDate([older, newer]).map((item) => item.slug),
     ).toEqual(['newer', 'older']);
+  });
+});
+
+describe('sortArticlesByRecentViews', () => {
+  it('falls back to newest when every article has zero views', () => {
+    const older = {
+      slug: 'older',
+      recentViews: 0,
+      publishedAt: '2026-11-03T12:00:00.000Z',
+      paperPublishedAt: '2026-11-01T12:00:00.000Z',
+    };
+    const newer = {
+      slug: 'newer',
+      recentViews: 0,
+      publishedAt: '2026-10-01T12:00:00.000Z',
+      paperPublishedAt: '2026-11-02T12:00:00.000Z',
+    };
+
+    expect(
+      sortArticlesByRecentViews([older, newer]).map((item) => item.slug),
+    ).toEqual(['newer', 'older']);
+  });
+
+  it('ranks views ahead of publication date', () => {
+    const olderHit = {
+      slug: 'older-hit',
+      recentViews: 12,
+      publishedAt: '2026-10-01T12:00:00.000Z',
+      paperPublishedAt: '2026-10-01T12:00:00.000Z',
+    };
+    const newer = {
+      slug: 'newer',
+      recentViews: 0,
+      publishedAt: '2026-11-06T12:00:00.000Z',
+      paperPublishedAt: '2026-11-06T12:00:00.000Z',
+    };
+
+    expect(
+      sortArticlesByRecentViews([newer, olderHit]).map((item) => item.slug),
+    ).toEqual(['older-hit', 'newer']);
   });
 });

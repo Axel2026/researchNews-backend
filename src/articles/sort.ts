@@ -15,6 +15,22 @@ export function sortArticlesByPublicationDate<
   return [...items].sort((a, b) => publicationTime(b) - publicationTime(a));
 }
 
+export function sortArticlesByRecentViews<
+  T extends {
+    recentViews: number;
+    publishedAt: Date | string;
+    paperPublishedAt?: Date | string | null;
+  },
+>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.recentViews !== b.recentViews) {
+      return b.recentViews - a.recentViews;
+    }
+
+    return publicationTime(b) - publicationTime(a);
+  });
+}
+
 export function sortArticlesForHome<
   T extends {
     featured: boolean;

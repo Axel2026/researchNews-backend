@@ -9,6 +9,7 @@ export type ArticleListItem = {
   publishedAt: string;
   paperPublishedAt: string | null;
   featured: boolean;
+  recentViews: number;
 };
 
 export type ArticleDetail = ArticleListItem & {

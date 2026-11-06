@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   customType,
+  date,
   foreignKey,
   index,
   integer,
@@ -78,6 +79,22 @@ export const comments = pgTable(
       foreignColumns: [table.id],
       name: 'comments_parent_id_comments_id_fk',
     }).onDelete('cascade'),
+  ],
+);
+
+export const articleViewDays = pgTable(
+  'article_view_days',
+  {
+    articleId: text('article_id')
+      .notNull()
+      .references(() => articles.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    views: integer('views').notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.articleId, table.day] }),
+    index('article_view_days_day_idx').on(table.day),
+    check('article_view_days_views_positive', sql`${table.views} >= 1`),
   ],
 );
 

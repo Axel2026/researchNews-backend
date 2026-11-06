@@ -9,6 +9,7 @@ import {
   getCategoryBySlug,
   listArticles,
   listCategories,
+  recordArticleView,
 } from './articles/repository';
 import { listBookmarks, setBookmark } from './bookmarks/repository';
 import { createCommentSchema, updateCommentSchema } from './comments/body';
@@ -95,6 +96,15 @@ app.get('/articles/:slug/image', async (c) => {
       'Cache-Control': 'public, max-age=86400',
     },
   });
+});
+
+app.post('/articles/:slug/view', async (c) => {
+  const result = await recordArticleView(c.req.param('slug'));
+  if (result === 'not_found') {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  return c.body(null, 204);
 });
 
 app.get('/articles/:slug/comments', async (c) => {

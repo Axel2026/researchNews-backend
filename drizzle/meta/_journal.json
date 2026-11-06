@@ -50,6 +50,13 @@
       "when": 1793875658428,
       "tag": "0006_tiny_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793963579831,
+      "tag": "0007_workable_bloodstrike",
+      "breakpoints": true
     }
   ]
 }
