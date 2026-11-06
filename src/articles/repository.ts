@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
 import { articles, articleTranslations, articleViewDays } from '../db/schema';
@@ -12,6 +12,7 @@ import {
 import { articleImageUrl } from './image';
 import { FALLBACK_LOCALE, type Locale } from './locale';
 import { resolveSourceUrl } from '../core/map';
+import { ilikeContainsPattern, type ArticleListSort } from './search';
 import { sortArticlesByPublicationDate } from './sort';
 import type {
   ArticleCategory,
@@ -56,7 +57,17 @@ const recentViews = db
   .groupBy(articleViewDays.articleId)
   .as('recent_views');
 
-export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
+const publicationDateDesc = sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) desc`;
+
+export async function listArticles(
+  locale: Locale,
+  options: { query?: string; sort?: ArticleListSort } = {},
+): Promise<ArticleListItem[]> {
+  const pattern = options.query
+    ? ilikeContainsPattern(options.query)
+    : undefined;
+  const newestFirst = options.sort === 'newest';
+
   const rows = await db
     .select({
       id: articles.id,
@@ -87,9 +98,20 @@ export async function listArticles(locale: Locale): Promise<ArticleListItem[]> {
       and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
     )
     .leftJoin(recentViews, eq(recentViews.articleId, articles.id))
+    .where(
+      pattern
+        ? or(
+            sql`coalesce(${requested.title}, ${polish.title}) ilike ${pattern}`,
+            sql`coalesce(${requested.shortPopularization}, ${polish.shortPopularization}) ilike ${pattern}`,
+            sql`coalesce(${requested.field}, ${polish.field}) ilike ${pattern}`,
+            sql`${articles.realTitle} ilike ${pattern}`,
+          )
+        : undefined,
+    )
     .orderBy(
-      desc(articles.featured),
-      sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) desc`,
+      ...(newestFirst
+        ? [publicationDateDesc]
+        : [desc(articles.featured), publicationDateDesc]),
     );
 
   return rows.map((row) => ({

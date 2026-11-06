@@ -11,6 +11,7 @@ import {
   listCategories,
   recordArticleView,
 } from './articles/repository';
+import { parseArticleQuery, parseArticleSort } from './articles/search';
 import { listBookmarks, setBookmark } from './bookmarks/repository';
 import { createCommentSchema, updateCommentSchema } from './comments/body';
 import { displayNameFromEmail } from './comments/display-name';
@@ -49,7 +50,18 @@ app.get('/articles', async (c) => {
     return c.json({ error: 'invalid_locale' }, 400);
   }
 
-  return c.json(await listArticles(parsed.locale));
+  const query = parseArticleQuery(c.req.query('q'));
+  const sort = parseArticleSort(c.req.query('sort'));
+  if (!query.ok || !sort.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  return c.json(
+    await listArticles(parsed.locale, {
+      query: query.query,
+      sort: sort.sort,
+    }),
+  );
 });
 
 app.get('/sources', async (c) => {
