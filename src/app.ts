@@ -11,7 +11,13 @@ import {
   listCategories,
   recordArticleView,
 } from './articles/repository';
-import { parseArticleQuery, parseArticleSort } from './articles/search';
+import {
+  articleDateBounds,
+  parseArticleDate,
+  parseArticleField,
+  parseArticleQuery,
+  parseArticleSort,
+} from './articles/search';
 import { listBookmarks, setBookmark } from './bookmarks/repository';
 import { createCommentSchema, updateCommentSchema } from './comments/body';
 import { displayNameFromEmail } from './comments/display-name';
@@ -51,15 +57,28 @@ app.get('/articles', async (c) => {
   }
 
   const query = parseArticleQuery(c.req.query('q'));
+  const author = parseArticleQuery(c.req.query('author'));
+  const field = parseArticleField(c.req.query('field'));
   const sort = parseArticleSort(c.req.query('sort'));
-  if (!query.ok || !sort.ok) {
+  const from = parseArticleDate(c.req.query('from'));
+  const to = parseArticleDate(c.req.query('to'));
+  if (!query.ok || !author.ok || !field.ok || !sort.ok || !from.ok || !to.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  const bounds = articleDateBounds(from.date, to.date);
+  if (!bounds.ok) {
     return c.json({ error: 'invalid_query' }, 400);
   }
 
   return c.json(
     await listArticles(parsed.locale, {
       query: query.query,
+      author: author.query,
+      field: field.field,
       sort: sort.sort,
+      start: bounds.start,
+      endExclusive: bounds.endExclusive,
     }),
   );
 });

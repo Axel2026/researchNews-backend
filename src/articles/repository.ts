@@ -61,12 +61,57 @@ const publicationDateDesc = sql`coalesce(${articles.paperPublishedAt}, ${article
 
 export async function listArticles(
   locale: Locale,
-  options: { query?: string; sort?: ArticleListSort } = {},
+  options: {
+    query?: string;
+    sort?: ArticleListSort;
+    author?: string;
+    field?: string;
+    start?: Date;
+    endExclusive?: Date;
+  } = {},
 ): Promise<ArticleListItem[]> {
-  const pattern = options.query
-    ? ilikeContainsPattern(options.query)
-    : undefined;
-  const newestFirst = options.sort === 'newest';
+  const conditions = [];
+
+  if (options.query) {
+    const pattern = ilikeContainsPattern(options.query);
+    conditions.push(
+      or(
+        sql`coalesce(${requested.title}, ${polish.title}) ilike ${pattern}`,
+        sql`coalesce(${requested.shortPopularization}, ${polish.shortPopularization}) ilike ${pattern}`,
+        sql`coalesce(${requested.field}, ${polish.field}) ilike ${pattern}`,
+        sql`${articles.realTitle} ilike ${pattern}`,
+      ),
+    );
+  }
+
+  if (options.author) {
+    conditions.push(
+      sql`exists (
+        select 1
+        from unnest(${articles.authors}) as author_name
+        where author_name ilike ${ilikeContainsPattern(options.author)}
+      )`,
+    );
+  }
+
+  if (options.start) {
+    conditions.push(
+      sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) >= ${options.start.toISOString()}`,
+    );
+  }
+
+  if (options.endExclusive) {
+    conditions.push(
+      sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) < ${options.endExclusive.toISOString()}`,
+    );
+  }
+
+  const orderBy =
+    options.sort === 'popular'
+      ? [sql`coalesce(${recentViews.views}, 0) desc`, publicationDateDesc]
+      : options.sort === 'newest'
+        ? [publicationDateDesc]
+        : [desc(articles.featured), publicationDateDesc];
 
   const rows = await db
     .select({
@@ -98,23 +143,10 @@ export async function listArticles(
       and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
     )
     .leftJoin(recentViews, eq(recentViews.articleId, articles.id))
-    .where(
-      pattern
-        ? or(
-            sql`coalesce(${requested.title}, ${polish.title}) ilike ${pattern}`,
-            sql`coalesce(${requested.shortPopularization}, ${polish.shortPopularization}) ilike ${pattern}`,
-            sql`coalesce(${requested.field}, ${polish.field}) ilike ${pattern}`,
-            sql`${articles.realTitle} ilike ${pattern}`,
-          )
-        : undefined,
-    )
-    .orderBy(
-      ...(newestFirst
-        ? [publicationDateDesc]
-        : [desc(articles.featured), publicationDateDesc]),
-    );
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(...orderBy);
 
-  return rows.map((row) => ({
+  const items = rows.map((row) => ({
     id: row.id,
     slug: row.slug,
     title: row.title ?? row.fallbackTitle,
@@ -128,6 +160,12 @@ export async function listArticles(
     featured: row.featured,
     recentViews: row.recentViews ?? 0,
   }));
+
+  if (!options.field) {
+    return items;
+  }
+
+  return articlesForCategorySlug(items, options.field);
 }
 
 export async function recordArticleView(
