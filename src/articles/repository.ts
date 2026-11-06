@@ -1,7 +1,22 @@
-import { and, asc, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/client';
-import { articles, articleTranslations, articleViewDays } from '../db/schema';
+import {
+  articles,
+  articleTranslations,
+  articleViewDays,
+  comments,
+} from '../db/schema';
 import { RECENT_VIEW_DAYS, utcDayString } from './views';
 import { env } from '../env';
 import { uniqueCategories } from './category';
@@ -57,6 +72,16 @@ const recentViews = db
   .groupBy(articleViewDays.articleId)
   .as('recent_views');
 
+const commentCounts = db
+  .select({
+    articleId: comments.articleId,
+    commentCount: sql<number>`cast(count(*) as int)`.as('comment_count'),
+  })
+  .from(comments)
+  .where(isNull(comments.deletedAt))
+  .groupBy(comments.articleId)
+  .as('comment_counts');
+
 const publicationDateDesc = sql`coalesce(${articles.paperPublishedAt}, ${articles.publishedAt}) desc`;
 
 type ArticleQueryOptions = {
@@ -79,6 +104,7 @@ const articleListColumns = {
   paperPublishedAt: articles.paperPublishedAt,
   featured: articles.featured,
   recentViews: recentViews.views,
+  commentCount: commentCounts.commentCount,
   title: requested.title,
   field: requested.field,
   shortPopularization: requested.shortPopularization,
@@ -180,6 +206,7 @@ type ArticleListRow = {
   paperPublishedAt: Date | null;
   featured: boolean;
   recentViews: number | null;
+  commentCount: number | null;
   title: string | null;
   field: string | null;
   shortPopularization: string | null;
@@ -203,6 +230,7 @@ function toListItem(row: ArticleListRow): ArticleListItem {
     featured: row.featured,
     recentViews: row.recentViews ?? 0,
     authors: row.authors,
+    commentCount: row.commentCount ?? 0,
   };
 }
 
@@ -212,7 +240,8 @@ function selectArticles(locale: Locale) {
     .from(articles)
     .innerJoin(polish, polishJoin())
     .leftJoin(requested, requestedJoin(locale))
-    .leftJoin(recentViews, eq(recentViews.articleId, articles.id));
+    .leftJoin(recentViews, eq(recentViews.articleId, articles.id))
+    .leftJoin(commentCounts, eq(commentCounts.articleId, articles.id));
 }
 
 function countArticles(locale: Locale) {
@@ -301,6 +330,7 @@ export async function getArticleBySlug(
       publishedAt: articles.publishedAt,
       paperPublishedAt: articles.paperPublishedAt,
       featured: articles.featured,
+      commentCount: commentCounts.commentCount,
       doi: articles.doi,
       year: articles.year,
       journal: articles.journal,
@@ -329,6 +359,7 @@ export async function getArticleBySlug(
       requested,
       and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
     )
+    .leftJoin(commentCounts, eq(commentCounts.articleId, articles.id))
     .where(eq(articles.slug, slug))
     .limit(1);
 
@@ -356,6 +387,7 @@ export async function getArticleBySlug(
     paperPublishedAt: toNullableIso(row.paperPublishedAt),
     featured: row.featured,
     recentViews: 0,
+    commentCount: row.commentCount ?? 0,
     doi: row.doi,
     year: row.year,
     journal: row.journal,
