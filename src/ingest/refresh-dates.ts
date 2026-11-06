@@ -1,7 +1,9 @@
 import 'dotenv/config';
-import { eq } from 'drizzle-orm';
-import { db, queryClient } from '../db/client';
-import { articles } from '../db/schema';
+import { queryClient } from '../db/client';
+import {
+  listArticleRefs,
+  updateArticlePublication,
+} from '../articles/repository';
 import { createCoreClient, type CoreClient } from '../core/client';
 import {
   normalizeDoi,
@@ -68,9 +70,9 @@ async function publicationForArticle(
     const raw = await fetchCoreWork(client, row);
     return paperPublicationFromWork(raw);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.warn(`Skipped ${row.id}: ${detail}`);
-    return null;
+    throw new Error(`Failed to read CORE publication for ${row.id}`, {
+      cause: error,
+    });
   }
 }
 
@@ -80,13 +82,7 @@ async function refresh(): Promise<void> {
     baseUrl: process.env.CORE_API_URL,
   });
 
-  const rows = await db
-    .select({
-      id: articles.id,
-      doi: articles.doi,
-      realTitle: articles.realTitle,
-    })
-    .from(articles);
+  const rows = await listArticleRefs();
 
   let updated = 0;
   let skipped = 0;
@@ -98,13 +94,10 @@ async function refresh(): Promise<void> {
       continue;
     }
 
-    await db
-      .update(articles)
-      .set({
-        paperPublishedAt: publication.paperPublishedAt,
-        year: publication.year,
-      })
-      .where(eq(articles.id, row.id));
+    await updateArticlePublication(row.id, {
+      paperPublishedAt: publication.paperPublishedAt,
+      year: publication.year,
+    });
     updated += 1;
     console.log(
       `- ${row.id} ${publication.paperPublishedAt.toISOString()} year=${publication.year ?? 'none'}`,

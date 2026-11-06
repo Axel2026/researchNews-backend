@@ -2,8 +2,8 @@ import 'dotenv/config';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, queryClient } from '../db/client';
-import { articles } from '../db/schema';
+import { queryClient } from '../db/client';
+import { listArticleRefs } from '../articles/repository';
 import { createCoreClient } from '../core/client';
 import { mapWork, type MappedWork } from '../core/map';
 
@@ -51,12 +51,7 @@ function isComplete(paper: MappedWork): boolean {
 }
 
 async function main() {
-  const existing = await db
-    .select({
-      id: articles.id,
-      doi: articles.doi,
-    })
-    .from(articles);
+  const existing = await listArticleRefs();
 
   const seenIds = new Set(existing.map((row) => row.id));
   const seenDois = new Set(

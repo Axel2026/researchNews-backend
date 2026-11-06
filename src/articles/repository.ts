@@ -17,9 +17,8 @@ import {
   articleViewDays,
   comments,
 } from '../db/schema';
-import { RECENT_VIEW_DAYS, utcDayString } from './views';
+import { RECENT_VIEW_DAYS } from './views';
 import { env } from '../env';
-import { uniqueCategories } from './category';
 import { articleImageUrl } from './image';
 import { FALLBACK_LOCALE, type Locale } from './locale';
 import { resolveSourceUrl } from '../core/map';
@@ -28,13 +27,7 @@ import {
   ilikeContainsPattern,
   type ArticleListSort,
 } from './search';
-import type {
-  ArticleCategory,
-  ArticleCategoryDetail,
-  ArticleDetail,
-  ArticleListItem,
-  ArticlePage,
-} from './types';
+import type { ArticleDetail, ArticleListItem, ArticlePage } from './types';
 
 const polish = alias(articleTranslations, 'pl');
 const requested = alias(articleTranslations, 'requested');
@@ -287,33 +280,6 @@ export async function listArticlePage(
   };
 }
 
-export async function recordArticleView(
-  slug: string,
-): Promise<'ok' | 'not_found'> {
-  const rows = await db
-    .select({ id: articles.id })
-    .from(articles)
-    .where(eq(articles.slug, slug))
-    .limit(1);
-
-  const article = rows[0];
-  if (!article) {
-    return 'not_found';
-  }
-
-  const day = utcDayString(new Date());
-
-  await db
-    .insert(articleViewDays)
-    .values({ articleId: article.id, day, views: 1 })
-    .onConflictDoUpdate({
-      target: [articleViewDays.articleId, articleViewDays.day],
-      set: { views: sql`${articleViewDays.views} + 1` },
-    });
-
-  return 'ok';
-}
-
 export async function getArticleBySlug(
   slug: string,
   locale: Locale,
@@ -396,49 +362,118 @@ export async function getArticleBySlug(
   };
 }
 
-export async function listCategories(
-  locale: Locale,
-): Promise<ArticleCategory[]> {
-  return uniqueCategories(await listArticles(locale));
-}
+type ArticleWrite = {
+  id: string;
+  slug: string;
+  authors: string[];
+  realTitle: string;
+  imageUrl: string;
+  featured: boolean;
+  publishedAt: Date;
+  paperPublishedAt: Date | null;
+  doi: string | null;
+  year: number | null;
+  journal: string | null;
+  sourceUrl: string | null;
+  downloadUrl: string | null;
+  fieldSlug: string;
+};
 
-export async function getCategoryBySlug(
-  slug: string,
-  locale: Locale,
-  page = 1,
-): Promise<ArticleCategoryDetail | undefined> {
-  const result = await listArticlePage(locale, {
-    field: slug,
-    sort: 'newest',
-    page,
+type TranslationWrite = {
+  articleId: string;
+  locale: string;
+  title: string;
+  field: string;
+  shortPopularization: string;
+  mediumPopularization: string;
+  fullPopularization: string;
+};
+
+export async function upsertArticle(
+  values: ArticleWrite,
+  set: Partial<Omit<ArticleWrite, 'id'>>,
+  translations: TranslationWrite[],
+): Promise<void> {
+  await db.insert(articles).values(values).onConflictDoUpdate({
+    target: articles.id,
+    set,
   });
-  const field = result.articles[0]?.field;
 
-  if (!field) {
-    return undefined;
+  for (const translation of translations) {
+    await db
+      .insert(articleTranslations)
+      .values(translation)
+      .onConflictDoUpdate({
+        target: [articleTranslations.articleId, articleTranslations.locale],
+        set: {
+          title: translation.title,
+          field: translation.field,
+          shortPopularization: translation.shortPopularization,
+          mediumPopularization: translation.mediumPopularization,
+          fullPopularization: translation.fullPopularization,
+        },
+      });
   }
-
-  return { slug, field, ...result };
 }
 
-export async function getArticleImage(
-  slug: string,
-): Promise<{ bytes: Buffer; contentType: string } | undefined> {
-  const rows = await db
+export async function listArticleRefs(): Promise<
+  { id: string; doi: string | null; realTitle: string }[]
+> {
+  return db
     .select({
-      image: articles.image,
-      contentType: articles.imageContentType,
+      id: articles.id,
+      doi: articles.doi,
+      realTitle: articles.realTitle,
+    })
+    .from(articles);
+}
+
+export async function updateArticlePublication(
+  id: string,
+  publication: { paperPublishedAt: Date; year: number | null },
+): Promise<void> {
+  await db.update(articles).set(publication).where(eq(articles.id, id));
+}
+
+export async function updateArticleLinks(
+  id: string,
+  links: {
+    sourceUrl: string | null;
+    downloadUrl: string | null;
+    doi: string | null;
+  },
+): Promise<void> {
+  await db
+    .update(articles)
+    .set({
+      sourceUrl: links.sourceUrl,
+      downloadUrl: links.downloadUrl,
+      ...(links.doi ? { doi: links.doi } : {}),
+    })
+    .where(eq(articles.id, id));
+}
+
+export async function listFallbackFields(): Promise<
+  { id: string; field: string }[]
+> {
+  return db
+    .select({
+      id: articles.id,
+      field: articleTranslations.field,
     })
     .from(articles)
-    .where(eq(articles.slug, slug))
-    .limit(1);
+    .innerJoin(
+      articleTranslations,
+      and(
+        eq(articleTranslations.articleId, articles.id),
+        eq(articleTranslations.locale, FALLBACK_LOCALE),
+      ),
+    );
+}
 
-  const row = rows[0];
-  if (!row?.image || !row.contentType) {
-    return undefined;
-  }
-
-  const bytes = Buffer.isBuffer(row.image) ? row.image : Buffer.from(row.image);
-
-  return { bytes, contentType: row.contentType };
+export async function setArticleFieldSlug(
+  id: string,
+  fieldSlug: string,
+): Promise<void> {
+  await db.update(articles).set({ fieldSlug }).where(eq(articles.id, id));
 }

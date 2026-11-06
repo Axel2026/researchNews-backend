@@ -1,16 +1,12 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { z } from 'zod';
 import { requireUser, type AuthEnv } from './auth/user';
+import { getArticleImage } from './articles/images/repository';
 import { parseLocale } from './articles/locale';
 import {
   getArticleBySlug,
-  getArticleImage,
-  getCategoryBySlug,
   listArticlePage,
   listArticles,
-  listCategories,
-  recordArticleView,
 } from './articles/repository';
 import {
   articleDateBounds,
@@ -20,7 +16,12 @@ import {
   parseArticleQuery,
   parseArticleSort,
 } from './articles/search';
+import { parseSlug } from './articles/slug';
+import { bookmarkUpdateSchema } from './bookmarks/body';
 import { listBookmarks, setBookmark } from './bookmarks/repository';
+import { getCategoryBySlug, listCategories } from './categories/repository';
+import { parseCommentId } from './comments/id';
+import { recordArticleView } from './views/repository';
 import { createCommentSchema, updateCommentSchema } from './comments/body';
 import { displayNameFromEmail } from './comments/display-name';
 import {
@@ -31,11 +32,6 @@ import {
 } from './comments/repository';
 import { listSources } from './sources/repository';
 import { pingSupabase } from './supabase/client';
-
-const bookmarkUpdateSchema = z.object({
-  slug: z.string().trim().min(1).max(200),
-  bookmarked: z.boolean(),
-});
 
 export const app = new Hono();
 
@@ -125,12 +121,13 @@ app.get('/categories/:slug', async (c) => {
   }
 
   const page = parseArticlePage(c.req.query('page'));
-  if (!page.ok) {
+  const slug = parseSlug(c.req.param('slug'));
+  if (!page.ok || !slug.ok) {
     return c.json({ error: 'invalid_query' }, 400);
   }
 
   const category = await getCategoryBySlug(
-    c.req.param('slug'),
+    slug.slug,
     parsed.locale,
     page.page ?? 1,
   );
@@ -142,7 +139,12 @@ app.get('/categories/:slug', async (c) => {
 });
 
 app.get('/articles/:slug/image', async (c) => {
-  const image = await getArticleImage(c.req.param('slug'));
+  const slug = parseSlug(c.req.param('slug'));
+  if (!slug.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  const image = await getArticleImage(slug.slug);
   if (!image) {
     return c.json({ error: 'not_found' }, 404);
   }
@@ -156,7 +158,12 @@ app.get('/articles/:slug/image', async (c) => {
 });
 
 app.post('/articles/:slug/view', async (c) => {
-  const result = await recordArticleView(c.req.param('slug'));
+  const slug = parseSlug(c.req.param('slug'));
+  if (!slug.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  const result = await recordArticleView(slug.slug);
   if (result === 'not_found') {
     return c.json({ error: 'not_found' }, 404);
   }
@@ -165,7 +172,12 @@ app.post('/articles/:slug/view', async (c) => {
 });
 
 app.get('/articles/:slug/comments', async (c) => {
-  const result = await listComments(c.req.param('slug'));
+  const slug = parseSlug(c.req.param('slug'));
+  if (!slug.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  const result = await listComments(slug.slug);
   if (result === 'not_found') {
     return c.json({ error: 'not_found' }, 404);
   }
@@ -179,7 +191,12 @@ app.get('/articles/:slug', async (c) => {
     return c.json({ error: 'invalid_locale' }, 400);
   }
 
-  const article = await getArticleBySlug(c.req.param('slug'), parsed.locale);
+  const slug = parseSlug(c.req.param('slug'));
+  if (!slug.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  const article = await getArticleBySlug(slug.slug, parsed.locale);
   if (!article) {
     return c.json({ error: 'not_found' }, 404);
   }
@@ -232,8 +249,13 @@ write.post('/articles/:slug/comments', requireUser, async (c) => {
     return c.json({ error: 'invalid_body' }, 400);
   }
 
+  const slug = parseSlug(c.req.param('slug'));
+  if (!slug.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
   const result = await createComment({
-    slug: c.req.param('slug'),
+    slug: slug.slug,
     userId: c.get('userId'),
     displayName: displayNameFromEmail(c.get('email')),
     body: parsed.data.body,
@@ -263,8 +285,13 @@ write.patch('/comments/:id', requireUser, async (c) => {
     return c.json({ error: 'invalid_body' }, 400);
   }
 
+  const id = parseCommentId(c.req.param('id'));
+  if (!id.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
   const result = await updateComment({
-    id: c.req.param('id'),
+    id: id.id,
     userId: c.get('userId'),
     body: parsed.data.body,
   });
@@ -285,8 +312,13 @@ write.patch('/comments/:id', requireUser, async (c) => {
 });
 
 write.delete('/comments/:id', requireUser, async (c) => {
+  const id = parseCommentId(c.req.param('id'));
+  if (!id.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
   const result = await deleteComment({
-    id: c.req.param('id'),
+    id: id.id,
     userId: c.get('userId'),
   });
 

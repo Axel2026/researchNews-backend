@@ -2,9 +2,8 @@ import 'dotenv/config';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { eq } from 'drizzle-orm';
-import { db, queryClient } from '../db/client';
-import { articles } from '../db/schema';
+import { queryClient } from '../db/client';
+import { storeArticleImage } from '../articles/images/repository';
 
 const IMAGE_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -33,16 +32,8 @@ async function upload(): Promise<void> {
 
     const slug = path.basename(name, extension);
     const bytes = await readFile(path.join(IMAGE_DIR, name));
-    const result = await db
-      .update(articles)
-      .set({
-        image: bytes,
-        imageContentType: contentType,
-      })
-      .where(eq(articles.slug, slug))
-      .returning({ id: articles.id });
-
-    if (result.length === 0) {
+    const stored = await storeArticleImage(slug, bytes, contentType);
+    if (!stored) {
       console.warn(`No article for ${name}`);
       skipped += 1;
       continue;

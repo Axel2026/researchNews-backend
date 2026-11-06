@@ -2,11 +2,11 @@ import 'dotenv/config';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, queryClient } from './db/client';
-import { articles, articleTranslations } from './db/schema';
+import { queryClient } from './db/client';
 import { PLACEHOLDER_IMAGE } from './articles/image';
 import { slugifyField } from './articles/category';
 import { FALLBACK_LOCALE } from './articles/locale';
+import { upsertArticle } from './articles/repository';
 import { papersSeedSchema } from './articles/validation';
 
 const SEED_BASE = new Date('2026-11-03T12:00:00.000Z');
@@ -23,64 +23,51 @@ async function seed() {
   for (const [index, paper] of papers.entries()) {
     const publishedAt = new Date(SEED_BASE.getTime() - index * 86_400_000);
 
-    await db
-      .insert(articles)
-      .values({
-        id: paper.id,
-        slug: paper.slug,
-        authors: paper.authors,
-        realTitle: paper.realTitle,
-        imageUrl: PLACEHOLDER_IMAGE,
-        featured: index === 0,
-        publishedAt,
-        paperPublishedAt: paper.paperPublishedAt
-          ? new Date(paper.paperPublishedAt)
-          : null,
-        doi: null,
-        year: paper.year ?? null,
-        journal: null,
-        sourceUrl: null,
-        downloadUrl: null,
-        fieldSlug: slugifyField(paper.field),
-      })
-      .onConflictDoUpdate({
-        target: articles.id,
-        set: {
-          slug: paper.slug,
-          authors: paper.authors,
-          realTitle: paper.realTitle,
-          imageUrl: PLACEHOLDER_IMAGE,
-          featured: index === 0,
-          publishedAt,
-          paperPublishedAt: paper.paperPublishedAt
-            ? new Date(paper.paperPublishedAt)
-            : null,
-          year: paper.year ?? null,
-          fieldSlug: slugifyField(paper.field),
-        },
-      });
+    const paperPublishedAt = paper.paperPublishedAt
+      ? new Date(paper.paperPublishedAt)
+      : null;
+    const values = {
+      id: paper.id,
+      slug: paper.slug,
+      authors: paper.authors,
+      realTitle: paper.realTitle,
+      imageUrl: PLACEHOLDER_IMAGE,
+      featured: index === 0,
+      publishedAt,
+      paperPublishedAt,
+      doi: null,
+      year: paper.year ?? null,
+      journal: null,
+      sourceUrl: null,
+      downloadUrl: null,
+      fieldSlug: slugifyField(paper.field),
+    };
 
-    await db
-      .insert(articleTranslations)
-      .values({
-        articleId: paper.id,
-        locale: FALLBACK_LOCALE,
-        title: paper.title,
-        field: paper.field,
-        shortPopularization: paper.shortPopularization,
-        mediumPopularization: paper.mediumPopularization,
-        fullPopularization: paper.fullPopularization,
-      })
-      .onConflictDoUpdate({
-        target: [articleTranslations.articleId, articleTranslations.locale],
-        set: {
+    await upsertArticle(
+      values,
+      {
+        slug: values.slug,
+        authors: values.authors,
+        realTitle: values.realTitle,
+        imageUrl: values.imageUrl,
+        featured: values.featured,
+        publishedAt: values.publishedAt,
+        paperPublishedAt: values.paperPublishedAt,
+        year: values.year,
+        fieldSlug: values.fieldSlug,
+      },
+      [
+        {
+          articleId: paper.id,
+          locale: FALLBACK_LOCALE,
           title: paper.title,
           field: paper.field,
           shortPopularization: paper.shortPopularization,
           mediumPopularization: paper.mediumPopularization,
           fullPopularization: paper.fullPopularization,
         },
-      });
+      ],
+    );
   }
 
   console.log(`Seeded ${papers.length} articles from ${papersPath}`);

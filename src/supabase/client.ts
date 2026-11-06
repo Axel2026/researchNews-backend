@@ -14,17 +14,18 @@ export const supabase = createClient(
 );
 
 export async function pingSupabase(): Promise<boolean> {
+  let response: Response;
   try {
-    const response = await fetch(new URL('/rest/v1/', env.SUPABASE_URL), {
+    response = await fetch(new URL('/rest/v1/', env.SUPABASE_URL), {
       headers: {
         apikey: env.SUPABASE_SECRET_KEY,
         Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
       },
       signal: AbortSignal.timeout(8000),
     });
-
-    return response.ok;
-  } catch {
-    return false;
+  } catch (error) {
+    throw new Error('Supabase ping failed', { cause: error });
   }
+
+  return response.ok;
 }

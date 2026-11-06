@@ -1,10 +1,10 @@
 import 'dotenv/config';
-import { db, queryClient } from '../db/client';
-import { articles, articleTranslations } from '../db/schema';
+import { queryClient } from '../db/client';
 import { createCoreClient } from '../core/client';
 import { CORE_INGEST_LIMIT, fetchWorksForIngest } from '../core/works';
 import { slugifyField } from '../articles/category';
 import { FALLBACK_LOCALE } from '../articles/locale';
+import { upsertArticle } from '../articles/repository';
 import type { MappedWork } from '../core/map';
 
 function requireCoreApiKey(): string {
@@ -16,65 +16,49 @@ function requireCoreApiKey(): string {
 }
 
 async function upsertPaper(paper: MappedWork): Promise<void> {
-  await db
-    .insert(articles)
-    .values({
-      id: paper.id,
-      slug: paper.slug,
-      authors: paper.authors,
-      realTitle: paper.realTitle,
-      imageUrl: paper.imageUrl,
-      featured: false,
-      publishedAt: paper.publishedAt,
-      paperPublishedAt: paper.paperPublishedAt,
-      doi: paper.doi,
-      year: paper.year,
-      journal: paper.journal,
-      sourceUrl: paper.sourceUrl,
-      downloadUrl: paper.downloadUrl,
-      fieldSlug: slugifyField(paper.field),
-    })
-    .onConflictDoUpdate({
-      target: articles.id,
-      set: {
-        slug: paper.slug,
-        authors: paper.authors,
-        realTitle: paper.realTitle,
-        imageUrl: paper.imageUrl,
-        publishedAt: paper.publishedAt,
-        paperPublishedAt: paper.paperPublishedAt,
-        doi: paper.doi,
-        year: paper.year,
-        journal: paper.journal,
-        sourceUrl: paper.sourceUrl,
-        downloadUrl: paper.downloadUrl,
-        fieldSlug: slugifyField(paper.field),
-      },
-    });
+  const values = {
+    id: paper.id,
+    slug: paper.slug,
+    authors: paper.authors,
+    realTitle: paper.realTitle,
+    imageUrl: paper.imageUrl,
+    featured: false,
+    publishedAt: paper.publishedAt,
+    paperPublishedAt: paper.paperPublishedAt,
+    doi: paper.doi,
+    year: paper.year,
+    journal: paper.journal,
+    sourceUrl: paper.sourceUrl,
+    downloadUrl: paper.downloadUrl,
+    fieldSlug: slugifyField(paper.field),
+  };
 
-  for (const locale of ['en', FALLBACK_LOCALE]) {
-    await db
-      .insert(articleTranslations)
-      .values({
-        articleId: paper.id,
-        locale,
-        title: paper.title,
-        field: paper.field,
-        shortPopularization: paper.shortPopularization,
-        mediumPopularization: paper.mediumPopularization,
-        fullPopularization: paper.fullPopularization,
-      })
-      .onConflictDoUpdate({
-        target: [articleTranslations.articleId, articleTranslations.locale],
-        set: {
-          title: paper.title,
-          field: paper.field,
-          shortPopularization: paper.shortPopularization,
-          mediumPopularization: paper.mediumPopularization,
-          fullPopularization: paper.fullPopularization,
-        },
-      });
-  }
+  await upsertArticle(
+    values,
+    {
+      slug: values.slug,
+      authors: values.authors,
+      realTitle: values.realTitle,
+      imageUrl: values.imageUrl,
+      publishedAt: values.publishedAt,
+      paperPublishedAt: values.paperPublishedAt,
+      doi: values.doi,
+      year: values.year,
+      journal: values.journal,
+      sourceUrl: values.sourceUrl,
+      downloadUrl: values.downloadUrl,
+      fieldSlug: values.fieldSlug,
+    },
+    ['en', FALLBACK_LOCALE].map((locale) => ({
+      articleId: paper.id,
+      locale,
+      title: paper.title,
+      field: paper.field,
+      shortPopularization: paper.shortPopularization,
+      mediumPopularization: paper.mediumPopularization,
+      fullPopularization: paper.fullPopularization,
+    })),
+  );
 }
 
 async function ingest(): Promise<void> {

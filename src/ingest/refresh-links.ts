@@ -1,7 +1,6 @@
 import 'dotenv/config';
-import { eq } from 'drizzle-orm';
-import { db, queryClient } from '../db/client';
-import { articles } from '../db/schema';
+import { queryClient } from '../db/client';
+import { listArticleRefs, updateArticleLinks } from '../articles/repository';
 import { createCoreClient } from '../core/client';
 import { normalizeDoi, originalPaperUrl, paperDownloadUrl } from '../core/map';
 
@@ -23,7 +22,7 @@ async function refresh(): Promise<void> {
     baseUrl: process.env.CORE_API_URL,
   });
 
-  const rows = await db.select({ id: articles.id }).from(articles);
+  const rows = await listArticleRefs();
   let updated = 0;
   let skipped = 0;
 
@@ -49,14 +48,7 @@ async function refresh(): Promise<void> {
     const sourceUrl = originalPaperUrl(doi, work.links, coreId);
     const downloadUrl = paperDownloadUrl(work);
 
-    await db
-      .update(articles)
-      .set({
-        sourceUrl,
-        downloadUrl,
-        ...(doi ? { doi } : {}),
-      })
-      .where(eq(articles.id, row.id));
+    await updateArticleLinks(row.id, { sourceUrl, downloadUrl, doi });
     updated += 1;
   }
 

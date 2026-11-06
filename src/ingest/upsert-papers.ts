@@ -1,6 +1,5 @@
-import { db } from '../db/client';
-import { articles, articleTranslations } from '../db/schema';
 import { isFieldOfStudy, slugifyField } from '../articles/category';
+import { upsertArticle } from '../articles/repository';
 import { uniqueAuthors } from './authors';
 
 export type Translation = {
@@ -62,27 +61,20 @@ export async function upsertPopularizedPaper(
     downloadUrl: paper.downloadUrl ?? null,
     fieldSlug: slugifyField(paper.translations.pl.field),
   };
+  const featured = paper.featured ?? false;
 
-  await db
-    .insert(articles)
-    .values({
+  await upsertArticle(
+    {
       id: paper.id,
-      featured: paper.featured ?? false,
+      featured,
       ...articleValues,
-    })
-    .onConflictDoUpdate({
-      target: articles.id,
-      set:
-        paper.featured === undefined
-          ? articleValues
-          : { ...articleValues, featured: paper.featured },
-    });
-
-  for (const locale of ['pl', 'en'] as const) {
-    const translation = paper.translations[locale];
-    await db
-      .insert(articleTranslations)
-      .values({
+    },
+    paper.featured === undefined
+      ? articleValues
+      : { ...articleValues, featured: paper.featured },
+    (['pl', 'en'] as const).map((locale) => {
+      const translation = paper.translations[locale];
+      return {
         articleId: paper.id,
         locale,
         title: translation.title,
@@ -90,16 +82,7 @@ export async function upsertPopularizedPaper(
         shortPopularization: translation.shortPopularization,
         mediumPopularization: translation.mediumPopularization,
         fullPopularization: translation.fullPopularization,
-      })
-      .onConflictDoUpdate({
-        target: [articleTranslations.articleId, articleTranslations.locale],
-        set: {
-          title: translation.title,
-          field: translation.field,
-          shortPopularization: translation.shortPopularization,
-          mediumPopularization: translation.mediumPopularization,
-          fullPopularization: translation.fullPopularization,
-        },
-      });
-  }
+      };
+    }),
+  );
 }
