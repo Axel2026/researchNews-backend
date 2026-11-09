@@ -19,6 +19,15 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   },
 });
 
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  bookmarkedSlugs: text('bookmarked_slugs')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  displayName: text('display_name'),
+});
+
 export const articles = pgTable(
   'articles',
   {
@@ -38,6 +47,16 @@ export const articles = pgTable(
     sourceUrl: text('source_url'),
     downloadUrl: text('download_url'),
     fieldSlug: text('field_slug').notNull(),
+    abstract: text('abstract'),
+    popularizedAt: timestamp('popularized_at', { withTimezone: true }),
+    popularizedBy: text('popularized_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    popularizingAt: timestamp('popularizing_at', { withTimezone: true }),
+    popularizingBy: text('popularizing_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    popularizationModel: text('popularization_model'),
   },
   (table) => [
     check('articles_authors_min', sql`cardinality(${table.authors}) >= 1`),
@@ -45,14 +64,36 @@ export const articles = pgTable(
   ],
 );
 
-export const users = pgTable('users', {
-  id: text('id').primaryKey(),
-  bookmarkedSlugs: text('bookmarked_slugs')
-    .array()
-    .notNull()
-    .default(sql`'{}'::text[]`),
-  displayName: text('display_name'),
-});
+export const userAiKeys = pgTable(
+  'user_ai_keys',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    wrappedDek: bytea('wrapped_dek').notNull(),
+    wrapNonce: bytea('wrap_nonce').notNull(),
+    wrapTag: bytea('wrap_tag').notNull(),
+    ciphertext: bytea('ciphertext').notNull(),
+    nonce: bytea('nonce').notNull(),
+    tag: bytea('tag').notNull(),
+    kekVersion: integer('kek_version').notNull(),
+    last4: text('last4').notNull(),
+    model: text('model').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.provider] }),
+    check(
+      'user_ai_keys_provider',
+      sql`${table.provider} in ('openai', 'xai', 'anthropic')`,
+    ),
+    check('user_ai_keys_last4_len', sql`char_length(${table.last4}) = 4`),
+    check('user_ai_keys_kek_version', sql`${table.kekVersion} >= 1`),
+  ],
+);
 
 export const comments = pgTable(
   'comments',

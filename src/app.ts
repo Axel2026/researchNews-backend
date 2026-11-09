@@ -17,7 +17,11 @@ import {
   parseArticleSort,
 } from './articles/search';
 import { parseSlug } from './articles/slug';
+import { popularizeBodySchema, saveAiKeySchema } from './ai-keys/body';
+import { deleteAiKey, listAiKeys, saveAiKey } from './ai-keys/repository';
+import { isAiProvider } from './ai-keys/providers';
 import { bookmarkUpdateSchema } from './bookmarks/body';
+import { popularizeArticle } from './popularize/run';
 import { listBookmarks, setBookmark } from './bookmarks/repository';
 import { getCategoryBySlug, listCategories } from './categories/repository';
 import { parseCommentId } from './comments/id';
@@ -237,6 +241,41 @@ me.put('/bookmarks', async (c) => {
   return c.json(result);
 });
 
+me.get('/ai-keys', async (c) => {
+  return c.json({ keys: await listAiKeys(c.get('userId')) });
+});
+
+me.put('/ai-keys', async (c) => {
+  const parsed = saveAiKeySchema.safeParse(
+    await c.req.json().catch(() => null),
+  );
+  if (!parsed.success) {
+    return c.json({ error: 'invalid_body' }, 400);
+  }
+
+  const saved = await saveAiKey(
+    c.get('userId'),
+    parsed.data.provider,
+    parsed.data.model,
+    parsed.data.apiKey,
+  );
+  if (saved === 'missing_key') {
+    return c.json({ error: 'invalid_body' }, 400);
+  }
+
+  return c.json(saved);
+});
+
+me.delete('/ai-keys/:provider', async (c) => {
+  const provider = c.req.param('provider');
+  if (!isAiProvider(provider)) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  await deleteAiKey(c.get('userId'), provider);
+  return c.body(null, 204);
+});
+
 app.route('/me', me);
 
 const write = new Hono<AuthEnv>();
@@ -331,6 +370,45 @@ write.delete('/comments/:id', requireUser, async (c) => {
   }
 
   return c.json(result);
+});
+
+write.post('/articles/:slug/popularize', requireUser, async (c) => {
+  const parsed = popularizeBodySchema.safeParse(
+    await c.req.json().catch(() => null),
+  );
+  if (!parsed.success) {
+    return c.json({ error: 'invalid_body' }, 400);
+  }
+
+  const slug = parseSlug(c.req.param('slug'));
+  if (!slug.ok) {
+    return c.json({ error: 'invalid_query' }, 400);
+  }
+
+  const result = await popularizeArticle({
+    slug: slug.slug,
+    userId: c.get('userId'),
+    email: c.get('email'),
+    provider: parsed.data.provider,
+  });
+
+  if (result === 'saved') {
+    return c.body(null, 204);
+  }
+
+  if (result === 'not_found') {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  if (result === 'provider_error') {
+    return c.json({ error: 'provider_error' }, 502);
+  }
+
+  if (result === 'invalid_generation') {
+    return c.json({ error: 'invalid_generation' }, 422);
+  }
+
+  return c.json({ error: result }, 409);
 });
 
 app.route('/', write);

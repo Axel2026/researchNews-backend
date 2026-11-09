@@ -60,6 +60,7 @@ export async function upsertPopularizedPaper(
     sourceUrl: paper.sourceUrl,
     downloadUrl: paper.downloadUrl ?? null,
     fieldSlug: slugifyField(paper.translations.pl.field),
+    popularizedAt: publishedAt,
   };
   const featured = paper.featured ?? false;
 

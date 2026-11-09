@@ -71,6 +71,20 @@
       "when": 1793976212057,
       "tag": "0009_field_slug_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793992312513,
+      "tag": "0010_living_marvel_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793994791764,
+      "tag": "0011_sad_zeigeist",
+      "breakpoints": true
     }
   ]
 }

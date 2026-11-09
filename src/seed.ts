@@ -41,6 +41,7 @@ async function seed() {
       sourceUrl: null,
       downloadUrl: null,
       fieldSlug: slugifyField(paper.field),
+      popularizedAt: publishedAt,
     };
 
     await upsertArticle(
@@ -55,6 +56,7 @@ async function seed() {
         paperPublishedAt: values.paperPublishedAt,
         year: values.year,
         fieldSlug: values.fieldSlug,
+        popularizedAt: values.popularizedAt,
       },
       [
         {

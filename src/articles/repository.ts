@@ -16,6 +16,7 @@ import {
   articleTranslations,
   articleViewDays,
   comments,
+  users,
 } from '../db/schema';
 import { RECENT_VIEW_DAYS } from './views';
 import { env } from '../env';
@@ -302,6 +303,10 @@ export async function getArticleBySlug(
       journal: articles.journal,
       sourceUrl: articles.sourceUrl,
       downloadUrl: articles.downloadUrl,
+      popularizedAt: articles.popularizedAt,
+      popularizedBy: articles.popularizedBy,
+      popularizationModel: articles.popularizationModel,
+      popularizerName: users.displayName,
       title: requested.title,
       field: requested.field,
       shortPopularization: requested.shortPopularization,
@@ -326,6 +331,7 @@ export async function getArticleBySlug(
       and(eq(requested.articleId, articles.id), eq(requested.locale, locale)),
     )
     .leftJoin(commentCounts, eq(commentCounts.articleId, articles.id))
+    .leftJoin(users, eq(users.id, articles.popularizedBy))
     .where(eq(articles.slug, slug))
     .limit(1);
 
@@ -359,6 +365,11 @@ export async function getArticleBySlug(
     journal: row.journal,
     sourceUrl: resolveSourceUrl(row.doi, row.sourceUrl),
     downloadUrl: row.downloadUrl,
+    needsPopularization: row.popularizedAt === null,
+    popularizationModel: row.popularizationModel,
+    communityPopularization: row.popularizedBy
+      ? { displayName: row.popularizerName ?? 'user' }
+      : null,
   };
 }
 
@@ -377,6 +388,8 @@ type ArticleWrite = {
   sourceUrl: string | null;
   downloadUrl: string | null;
   fieldSlug: string;
+  abstract?: string | null;
+  popularizedAt?: Date | null;
 };
 
 type TranslationWrite = {
@@ -389,15 +402,76 @@ type TranslationWrite = {
   fullPopularization: string;
 };
 
+function definedColumns<T extends Record<string, unknown>>(values: T): T {
+  return Object.fromEntries(
+    Object.entries(values).filter((entry) => entry[1] !== undefined),
+  ) as T;
+}
+
 export async function upsertArticle(
   values: ArticleWrite,
   set: Partial<Omit<ArticleWrite, 'id'>>,
   translations: TranslationWrite[],
 ): Promise<void> {
-  await db.insert(articles).values(values).onConflictDoUpdate({
-    target: articles.id,
-    set,
-  });
+  await db
+    .insert(articles)
+    .values(definedColumns(values))
+    .onConflictDoUpdate({
+      target: articles.id,
+      set: definedColumns(set),
+    });
+
+  for (const translation of translations) {
+    await db
+      .insert(articleTranslations)
+      .values(translation)
+      .onConflictDoUpdate({
+        target: [articleTranslations.articleId, articleTranslations.locale],
+        set: {
+          title: translation.title,
+          field: translation.field,
+          shortPopularization: translation.shortPopularization,
+          mediumPopularization: translation.mediumPopularization,
+          fullPopularization: translation.fullPopularization,
+        },
+      });
+  }
+}
+
+export async function upsertCoreStub(
+  values: ArticleWrite & { abstract: string },
+  translations: TranslationWrite[],
+): Promise<void> {
+  await db
+    .insert(articles)
+    .values({ ...values, popularizedAt: null })
+    .onConflictDoUpdate({
+      target: articles.id,
+      set: {
+        slug: values.slug,
+        authors: values.authors,
+        realTitle: values.realTitle,
+        imageUrl: values.imageUrl,
+        publishedAt: values.publishedAt,
+        paperPublishedAt: values.paperPublishedAt,
+        doi: values.doi,
+        year: values.year,
+        journal: values.journal,
+        sourceUrl: values.sourceUrl,
+        downloadUrl: values.downloadUrl,
+        fieldSlug: values.fieldSlug,
+      },
+    });
+
+  const stillStub = await db
+    .update(articles)
+    .set({ abstract: values.abstract })
+    .where(and(eq(articles.id, values.id), isNull(articles.popularizedAt)))
+    .returning({ id: articles.id });
+
+  if (stillStub.length === 0) {
+    return;
+  }
 
   for (const translation of translations) {
     await db

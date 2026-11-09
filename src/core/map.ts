@@ -29,6 +29,7 @@ export type MappedWork = {
   shortPopularization: string;
   mediumPopularization: string;
   fullPopularization: string;
+  abstract: string;
   doi: string | null;
   year: number | null;
   journal: string | null;
@@ -124,6 +125,7 @@ export function mapWork(raw: unknown): MappedWork | null {
     shortPopularization: shortenAbstract(abstract),
     mediumPopularization: abstract,
     fullPopularization: abstract,
+    abstract,
     doi,
     year,
     journal,

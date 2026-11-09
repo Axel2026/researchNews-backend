@@ -4,7 +4,7 @@ import { createCoreClient } from '../core/client';
 import { CORE_INGEST_LIMIT, fetchWorksForIngest } from '../core/works';
 import { slugifyField } from '../articles/category';
 import { FALLBACK_LOCALE } from '../articles/locale';
-import { upsertArticle } from '../articles/repository';
+import { upsertCoreStub } from '../articles/repository';
 import type { MappedWork } from '../core/map';
 
 function requireCoreApiKey(): string {
@@ -31,24 +31,11 @@ async function upsertPaper(paper: MappedWork): Promise<void> {
     sourceUrl: paper.sourceUrl,
     downloadUrl: paper.downloadUrl,
     fieldSlug: slugifyField(paper.field),
+    abstract: paper.abstract,
   };
 
-  await upsertArticle(
+  await upsertCoreStub(
     values,
-    {
-      slug: values.slug,
-      authors: values.authors,
-      realTitle: values.realTitle,
-      imageUrl: values.imageUrl,
-      publishedAt: values.publishedAt,
-      paperPublishedAt: values.paperPublishedAt,
-      doi: values.doi,
-      year: values.year,
-      journal: values.journal,
-      sourceUrl: values.sourceUrl,
-      downloadUrl: values.downloadUrl,
-      fieldSlug: values.fieldSlug,
-    },
     ['en', FALLBACK_LOCALE].map((locale) => ({
       articleId: paper.id,
       locale,

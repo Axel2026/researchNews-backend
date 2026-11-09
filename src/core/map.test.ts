@@ -47,6 +47,7 @@ describe('mapWork', () => {
     expect(paper?.fullPopularization).toBe(
       abstract.replace(/\s+/g, ' ').trim(),
     );
+    expect(paper?.abstract).toBe(paper?.fullPopularization);
   });
 
   it('maps Nature portfolio journals from the DOI when CORE omits the title', () => {
