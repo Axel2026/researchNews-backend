@@ -13,22 +13,22 @@ Code, identifiers, comments, and commit messages are English.
 
 ## Handlers
 
-Routes in `src/app.ts` stay thin. Parse at the HTTP boundary, then call a repository or a pure function. Do not put SQL or business rules in the handler.
+HTTP lives in Nest controllers under `src/http`. A controller stays thin: parse at the boundary, then call a repository or a pure function. Do not put SQL or business rules in the controller.
 
-Query and path values use a parser that returns `{ ok: true, ... } | { ok: false }` (`parseLocale` in `src/articles/locale.ts`). JSON bodies use a Zod schema and `safeParse`.
+Query and path values use a parser that returns `{ ok: true, ... } | { ok: false }` (`parseLocale` in `src/articles/locale.ts`). Read a query string with `queryParam` (`src/http/query.ts`). JSON bodies use a Zod schema and `safeParse` on the parsed body. `JsonBodyMiddleware` turns malformed JSON into `invalid_body` before the controller runs.
+
+Authenticated routes use `AuthGuard` (`src/auth/guard.ts`). The handler reads the user with `@CurrentUser()`.
 
 ```ts
-const parsed = createCommentSchema.safeParse(
-  await c.req.json().catch(() => null),
-);
+const parsed = createCommentSchema.safeParse(body);
 if (!parsed.success) {
-  return c.json({ error: 'invalid_body' }, 400);
+  fail('invalid_body', HttpStatus.BAD_REQUEST);
 }
 
 const result = await createComment({
-  slug: c.req.param('slug'),
-  userId: c.get('userId'),
-  displayName: displayNameFromEmail(c.get('email')),
+  slug: parsedSlug.slug,
+  userId: user.userId,
+  displayName: displayNameFromEmail(user.email),
   body: parsed.data.body,
   parentId: parsed.data.parentId,
 });
@@ -40,7 +40,7 @@ Rules with no I/O live in a small module next to the feature (`src/comments/edit
 
 ## Errors
 
-Failed requests return `{ error: 'snake_case' }` and the HTTP status. Reuse the existing codes: `invalid_locale`, `invalid_query`, `invalid_body`, `invalid_parent`, `not_found`, `unauthorized`, `forbidden`, `edit_expired`, `rate_limited`. The body stays a code. No exception text, stack, or driver error.
+Failed requests return `{ error: 'snake_case' }` and the HTTP status. Controllers throw `fail(code, status)` from `src/http/fail.ts` so the body stays that shape. Do not use Nest's default `{ statusCode, message, error }` body. Reuse the existing codes: `invalid_locale`, `invalid_query`, `invalid_body`, `invalid_parent`, `not_found`, `unauthorized`, `forbidden`, `edit_expired`, `rate_limited`. The body stays a code. No exception text, stack, or driver error.
 
 Do not swallow a failure. No empty `catch`. When you wrap an error, keep the cause:
 
