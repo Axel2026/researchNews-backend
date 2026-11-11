@@ -26,7 +26,7 @@ export const users = pgTable('users', {
     .notNull()
     .default(sql`'{}'::text[]`),
   displayName: text('display_name'),
-});
+}).enableRLS();
 
 export const articles = pgTable(
   'articles',
@@ -62,7 +62,7 @@ export const articles = pgTable(
     check('articles_authors_min', sql`cardinality(${table.authors}) >= 1`),
     index('articles_field_slug_idx').on(table.fieldSlug),
   ],
-);
+).enableRLS();
 
 export const userAiKeys = pgTable(
   'user_ai_keys',
@@ -93,7 +93,7 @@ export const userAiKeys = pgTable(
     check('user_ai_keys_last4_len', sql`char_length(${table.last4}) = 4`),
     check('user_ai_keys_kek_version', sql`${table.kekVersion} >= 1`),
   ],
-);
+).enableRLS();
 
 export const comments = pgTable(
   'comments',
@@ -123,7 +123,7 @@ export const comments = pgTable(
       name: 'comments_parent_id_comments_id_fk',
     }).onDelete('cascade'),
   ],
-);
+).enableRLS();
 
 export const articleViewDays = pgTable(
   'article_view_days',
@@ -139,7 +139,7 @@ export const articleViewDays = pgTable(
     index('article_view_days_day_idx').on(table.day),
     check('article_view_days_views_positive', sql`${table.views} >= 1`),
   ],
-);
+).enableRLS();
 
 export const articleTranslations = pgTable(
   'article_translations',
@@ -155,14 +155,14 @@ export const articleTranslations = pgTable(
     fullPopularization: text('full_popularization').notNull(),
   },
   (table) => [primaryKey({ columns: [table.articleId, table.locale] })],
-);
+).enableRLS();
 
 export const sources = pgTable('sources', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   url: text('url').notNull(),
   position: integer('position').notNull().default(0),
-});
+}).enableRLS();
 
 export const sourceTranslations = pgTable(
   'source_translations',
@@ -174,4 +174,4 @@ export const sourceTranslations = pgTable(
     summary: text('summary').notNull(),
   },
   (table) => [primaryKey({ columns: [table.sourceId, table.locale] })],
-);
+).enableRLS();
