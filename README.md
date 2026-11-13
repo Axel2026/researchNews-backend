@@ -1,6 +1,6 @@
-# Badania — backend
+# General — backend
 
-Read API for popular-science articles. This is a separate HTTP process; the frontend does not live here.
+Read API for popular-science articles
 
 ## Requirements
 
