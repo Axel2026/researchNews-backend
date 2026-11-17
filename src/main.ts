@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule, ObserveInstrument } from './app.module';
 import { env } from './env';
 
 const app = await NestFactory.create(AppModule, {
@@ -11,6 +11,7 @@ const app = await NestFactory.create(AppModule, {
     allowedHeaders: ['Authorization', 'Content-Type'],
     methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   },
+  instrument: ObserveInstrument,
 });
 
 app.getHttpAdapter().getInstance().disable('x-powered-by');
